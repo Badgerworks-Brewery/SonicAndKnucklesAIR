@@ -1,8 +1,8 @@
-# Sonic 3 A.I.R.
+# Sonic and Knuckles Oxygen enhanced
 
-Source code incl. dependencies for "Sonic 3 - Angel Island Revisited", a fan-made remaster of Sonic 3 & Knuckles.
+Source code incl. dependencies for "Sonic 3 - Angel Island Revisited", a fan-made remaster of Sonic 3 & Knuckles, modded to run the pc collection version of the game.
 
-Project homepage: https://sonic3air.org/
+S3AIR Project homepage: https://sonic3air.org/
 
 
 ### Disclaimer
