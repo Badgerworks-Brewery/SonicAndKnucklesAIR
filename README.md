@@ -35,7 +35,10 @@ For information on how to build for different platforms, find the readme files i
 * Linux:   "_cmake"
 * Android: "_android"
 * Web:     "_emscripten"
-* Switch:  "_make"
+* Switch:  "_make" (unmaintained)
+
+Additional platform ports:
+* Vita: See https://github.com/v-atamanenko/sonic3air
 
 
 ## External dependencies
@@ -62,6 +65,9 @@ Source code contributions by:
 * Heyjoeway
 * Carjem Generations
 * Ultracoolguy
+* gl33ntwine
+* Rinnegatamante
+* MDashK
 
 Remastered soundtrack by:
 * G Spindash
@@ -80,6 +86,9 @@ Game scripts & other contributions by:
 * Elsie The Pict
 * TheMushrunt
 * mrgrassman14
+
+Additional thanks:
+* All contributors of the Sonic 3 / Sonic & Knuckles Disassembly (https://github.com/sonicretro/skdisasm), which has proven itself a valuable source of information on S3&K code
 
 
 ## Want to contribute?

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -11,9 +11,11 @@
 #include "oxygen/simulation/bindings/RendererBindings.h"
 #include "oxygen/simulation/CodeExec.h"
 #include "oxygen/simulation/EmulatorInterface.h"
+#include "oxygen/simulation/LemonScriptProgram.h"
 #include "oxygen/simulation/LogDisplay.h"
 #include "oxygen/simulation/PersistentData.h"
 #include "oxygen/simulation/Simulation.h"
+#include "oxygen/simulation/SimulationState.h"
 #include "oxygen/simulation/analyse/ROMDataAnalyser.h"
 #include "oxygen/application/Application.h"
 #include "oxygen/application/EngineMain.h"
@@ -23,12 +25,13 @@
 #include "oxygen/application/modding/ModManager.h"
 #include "oxygen/application/overlays/DebugSidePanel.h"
 #include "oxygen/application/video/VideoOut.h"
+#include "oxygen/helper/RandomNumberGenerator.h"
 #include "oxygen/rendering/parts/RenderParts.h"
-#include "oxygen/resources/ResourcesCache.h"
-#include "oxygen/resources/SpriteCache.h"
+#include "oxygen/resources/PaletteCollection.h"
+#include "oxygen/resources/RawDataCollection.h"
 
-#include <lemon/program/FunctionWrapper.h>
-#include <lemon/program/Module.h>
+#include <lemon/program/ModuleBindingsBuilder.h>
+#include <lemon/program/Program.h>
 #include <lemon/runtime/Runtime.h>
 
 #include <rmxmedia.h>
@@ -38,6 +41,8 @@
 
 namespace
 {
+	static lemon::FlyweightString FLYWEIGHTSTRING_PERSISTENTDATA("persistentdata");
+
 	namespace detail
 	{
 		uint32 loadData(EmulatorInterface& emulatorInterface, uint32 targetAddress, const std::vector<uint8>& data, uint32 offset, uint32 maxBytes)
@@ -63,6 +68,23 @@ namespace
 
 			memcpy(dst, &data[offset], bytes);
 			return bytes;
+		}
+
+		const Mod* getModForCurrentFunction()
+		{
+			CodeExec* codeExec = CodeExec::getActiveInstance();
+			if (nullptr == codeExec)
+				return nullptr;
+
+			const lemon::ControlFlow* controlFlow = lemon::Runtime::getActiveControlFlow();
+			if (nullptr == controlFlow)
+				return nullptr;
+
+			const lemon::ScriptFunction* scriptFunction = controlFlow->getCurrentFunction();
+			if (nullptr == scriptFunction)
+				return nullptr;
+
+			return codeExec->getLemonScriptProgram().getModByModule(scriptFunction->getModule());
 		}
 	}
 
@@ -199,14 +221,31 @@ namespace
 	}
 
 
-	uint32 System_loadPersistentData(uint32 targetAddress, lemon::StringRef key, uint32 maxBytes)
+	uint32 System_loadPersistentData(uint32 targetAddress, uint32 bytes, lemon::StringRef file, lemon::StringRef key, bool localFile)
 	{
-		const std::vector<uint8>& data = PersistentData::instance().getData(key.getHash());
-		return detail::loadData(getEmulatorInterface(), targetAddress, data, 0, maxBytes);
+		if (!key.isValid() || key.isEmpty() || !file.isValid())
+			return 0;
+		if (file.isEmpty())
+			file = lemon::StringRef(FLYWEIGHTSTRING_PERSISTENTDATA);
+
+		uint64 fileHash;
+		const Mod* mod = localFile ? detail::getModForCurrentFunction() : nullptr;
+		if (nullptr != mod)
+			fileHash = rmx::getMurmur2_64(mod->mUniqueID + "/" + std::string(file.getString()));
+		else
+			fileHash = file.getHash();
+
+		const std::vector<uint8>& data = PersistentData::instance().getData(fileHash, key.getHash());
+		return detail::loadData(getEmulatorInterface(), targetAddress, data, 0, bytes);
 	}
 
-	void System_savePersistentData(uint32 sourceAddress, lemon::StringRef key, uint32 bytes)
+	void System_savePersistentData(uint32 sourceAddress, uint32 bytes, lemon::StringRef file, lemon::StringRef key, bool localFile)
 	{
+		if (!key.isValid() || key.isEmpty() || !file.isValid())
+			return;
+		if (file.isEmpty())
+			file = lemon::StringRef(FLYWEIGHTSTRING_PERSISTENTDATA);
+
 		const uint8* src = getEmulatorInterface().getMemoryPointer(sourceAddress, false, bytes);
 		if (nullptr == src)
 			return;
@@ -215,22 +254,34 @@ namespace
 		std::vector<uint8> data;
 		data.resize(size);
 		memcpy(&data[0], src, size);
-		if (key.isValid())
+
+		const Mod* mod = localFile ? detail::getModForCurrentFunction() : nullptr;
+		if (nullptr != mod)
 		{
-			PersistentData::instance().setData(key.getString(), data);
+			PersistentData::instance().setData(mod->mUniqueID + "/" + std::string(file.getString()), key.getString(), data);
+		}
+		else
+		{
+			PersistentData::instance().setData(file.getString(), key.getString(), data);
 		}
 	}
 
-	uint32 SRAM_load(uint32 address, uint16 offset, uint16 bytes)
+	void System_removePersistentData(lemon::StringRef file, lemon::StringRef key, bool localFile)
 	{
-		return (uint32)getEmulatorInterface().loadSRAM(address, (size_t)offset, (size_t)bytes);
-	}
+		if (!key.isValid() || key.isEmpty() || !file.isValid())
+			return;
+		if (file.isEmpty())
+			file = lemon::StringRef(FLYWEIGHTSTRING_PERSISTENTDATA);
 
-	void SRAM_save(uint32 address, uint16 offset, uint16 bytes)
-	{
-		getEmulatorInterface().saveSRAM(address, (size_t)offset, (size_t)bytes);
-	}
+		uint64 fileHash;
+		const Mod* mod = localFile ? detail::getModForCurrentFunction() : nullptr;
+		if (nullptr != mod)
+			fileHash = rmx::getMurmur2_64(mod->mUniqueID + "/" + std::string(file.getString()));
+		else
+			fileHash = file.getHash();
 
+		PersistentData::instance().removeKey(fileHash, key.getHash());
+	}
 
 	bool System_callFunctionByName(lemon::StringRef functionName)
 	{
@@ -273,8 +324,29 @@ namespace
 
 	uint32 System_rand()
 	{
-		RMX_ASSERT(RAND_MAX >= 0x0800, "RAND_MAX not high enough on this platform, adjustments needed");
-		return ((uint32)(rand() & 0x03ff) << 22) + ((uint32)(rand() & 0x07ff) << 11) + (uint32)(rand() & 0x07ff);
+		RandomNumberGenerator& rng = Application::instance().getSimulation().getSimulationState().getRandomNumberGenerator();
+		return (uint32)rng.getRandomUint64();
+	}
+
+	float System_randomFloat()
+	{
+		RandomNumberGenerator& rng = Application::instance().getSimulation().getSimulationState().getRandomNumberGenerator();
+		return (float)(rng.getRandomUint64() % 8388608) / 8388607.0f;	// 8388608 is 2^23
+	}
+
+	int32 System_randRange1(int32 minimum, int32 maximum)
+	{
+		if (minimum < maximum)
+			return minimum + System_rand() % (maximum - minimum + 1);
+		else if (minimum > maximum)
+			return maximum + System_rand() % (minimum - maximum + 1);
+		else
+			return minimum;
+	}
+
+	float System_randRange2(float minimum, float maximum)
+	{
+		return minimum + System_randomFloat() * (maximum - minimum);
 	}
 
 	uint32 System_getPlatformFlags()
@@ -289,17 +361,17 @@ namespace
 
 	bool System_hasExternalRawData(lemon::StringRef key)
 	{
-		const std::vector<const ResourcesCache::RawData*>& rawDataVector = ResourcesCache::instance().getRawData(key.getHash());
+		const std::vector<const RawDataCollection::RawData*>& rawDataVector = RawDataCollection::instance().getRawData(key.getHash());
 		return !rawDataVector.empty();
 	}
 
 	uint32 System_loadExternalRawData1(lemon::StringRef key, uint32 targetAddress, uint32 offset, uint32 maxBytes, bool loadOriginalData, bool loadModdedData)
 	{
-		const std::vector<const ResourcesCache::RawData*>& rawDataVector = ResourcesCache::instance().getRawData(key.getHash());
-		const ResourcesCache::RawData* rawData = nullptr;
+		const std::vector<const RawDataCollection::RawData*>& rawDataVector = RawDataCollection::instance().getRawData(key.getHash());
+		const RawDataCollection::RawData* rawData = nullptr;
 		for (int i = (int)rawDataVector.size() - 1; i >= 0; --i)
 		{
-			const ResourcesCache::RawData* candidate = rawDataVector[i];
+			const RawDataCollection::RawData* candidate = rawDataVector[i];
 			const bool allow = (candidate->mIsModded) ? loadModdedData : loadOriginalData;
 			if (allow)
 			{
@@ -321,22 +393,26 @@ namespace
 
 	bool System_hasExternalPaletteData(lemon::StringRef key, uint8 line)
 	{
-		const ResourcesCache::Palette* palette = ResourcesCache::instance().getPalette(key.getHash(), line);
+		const PaletteBase* palette = PaletteCollection::instance().getPalette(key.getHash(), line);
 		return (nullptr != palette);
 	}
 
 	uint16 System_loadExternalPaletteData(lemon::StringRef key, uint8 line, uint32 targetAddress, uint8 maxColors)
 	{
-		const ResourcesCache::Palette* palette = ResourcesCache::instance().getPalette(key.getHash(), line);
+		const PaletteBase* palette = PaletteCollection::instance().getPalette(key.getHash(), line);
 		if (nullptr == palette)
 			return 0;
 
-		const std::vector<Color>& colors = palette->mColors;
-		const size_t numColors = std::min<size_t>(colors.size(), maxColors);
-		uint32* targetPointer = (uint32*)getEmulatorInterface().getMemoryPointer(targetAddress, true, (uint32)numColors * 4);
+		const size_t numColors = std::min<size_t>(palette->getSize(), maxColors);
+		if (numColors == 0)
+			return 0;
+
+		const uint32* colors = palette->getRawColors();
+		uint32* targetPointer = (uint32*)getEmulatorInterface().getMemoryPointer(targetAddress, true, (uint32)numColors * sizeof(uint32));
 		for (size_t i = 0; i < numColors; ++i)
 		{
-			targetPointer[i] = palette->mColors[i].getRGBA32();
+			// Maintain ABGR32 color format despite endianness change by swapping bytes
+			targetPointer[i] = swapBytes32(colors[i]);
 		}
 		return (uint16)numColors;
 	}
@@ -350,12 +426,6 @@ namespace
 
 		if (nullptr != LemonScriptBindings::mDebugNotificationInterface)
 			LemonScriptBindings::mDebugNotificationInterface->onScriptLog(*String(0, "%04d", lineNumber), valueString);
-	}
-
-	void logSetter(int64 value, bool decimal)
-	{
-		const std::string valueString = decimal ? *String(0, "%d", value) : *String(0, "%08x", value);
-		debugLogInternal(valueString);
 	}
 
 	template<typename T>
@@ -423,11 +493,11 @@ namespace
 				std::stringstream str;
 				if (param.mType->getBytes() == 4)
 				{
-					str << std::setprecision(std::numeric_limits<float>::digits10) << param.mValue.get<float>() << "f";
+					str << param.mValue.get<float>();
 				}
 				else
 				{
-					str << std::setprecision(std::numeric_limits<double>::digits10) << param.mValue.get<double>();
+					str << param.mValue.get<double>();
 				}
 				debugLogInternal(str.str());
 				break;
@@ -449,6 +519,22 @@ namespace
 
 			default:
 				break;
+		}
+	}
+
+	void logSetter(lemon::ControlFlow& controlFlow, bool decimal)
+	{
+		lemon::AnyTypeWrapper wrapper;
+		wrapper.readFromStack(controlFlow);
+
+		if (decimal && wrapper.mType->getClass() == lemon::DataTypeDefinition::Class::INTEGER)
+		{
+			const std::string valueString = *String(0, "%d", wrapper.mValue.get<int64>());
+			debugLogInternal(valueString);
+		}
+		else
+		{
+			debugLog(wrapper);
 		}
 	}
 
@@ -668,16 +754,17 @@ namespace
 	}
 
 
-	uint64 debugKeyGetter(int index)
+	void debugKeyGetter(lemon::ControlFlow& controlFlow, int index)
 	{
 		if (EngineMain::getDelegate().useDeveloperFeatures())
 		{
 			const int key = index + '0';
-			return (FTX::keyState(key) && FTX::keyChange(key) && !FTX::keyState(SDLK_LALT) && !FTX::keyState(SDLK_RALT)) ? 1 : 0;
+			const bool result = (FTX::keyState(key) && FTX::keyChange(key) && !FTX::keyState(SDLK_LALT) && !FTX::keyState(SDLK_RALT));
+			controlFlow.pushValueStack<uint8>(result ? 1 : 0);
 		}
 		else
 		{
-			return 0;
+			controlFlow.pushValueStack<uint8>(0);
 		}
 	}
 
@@ -852,10 +939,12 @@ namespace
 
 void LemonScriptBindings::registerBindings(lemon::Module& module)
 {
+	lemon::ModuleBindingsBuilder builder(module);
+
 	// Basic functions
 	const BitFlagSet<lemon::Function::Flag> defaultFlags(lemon::Function::Flag::ALLOW_INLINE_EXECUTION);
-	module.addNativeFunction("assert", lemon::wrap(&scriptAssert1), defaultFlags);
-	module.addNativeFunction("assert", lemon::wrap(&scriptAssert2), defaultFlags);
+	builder.addNativeFunction("assert", lemon::wrap(&scriptAssert1), defaultFlags);
+	builder.addNativeFunction("assert", lemon::wrap(&scriptAssert2), defaultFlags);
 
 	// Emulator interface bindings
 	{
@@ -873,170 +962,140 @@ void LemonScriptBindings::registerBindings(lemon::Module& module)
 		}
 
 		// Query flags
-		module.addNativeFunction("_equal", lemon::wrap(&checkFlags_equal), defaultFlags);
-		module.addNativeFunction("_negative", lemon::wrap(&checkFlags_negative), defaultFlags);
+		builder.addNativeFunction("_equal", lemon::wrap(&checkFlags_equal), defaultFlags);
+		builder.addNativeFunction("_negative", lemon::wrap(&checkFlags_negative), defaultFlags);
 
 		// Explictly set flags
-		module.addNativeFunction("_setZeroFlagByValue", lemon::wrap(&setZeroFlagByValue), defaultFlags)
-			.setParameterInfo(0, "value");
+		builder.addNativeFunction("_setZeroFlagByValue", lemon::wrap(&setZeroFlagByValue), defaultFlags)
+			.setParameters("value");
 
-		module.addNativeFunction("_setNegativeFlagByValue", lemon::wrap(&setNegativeFlagByValue<int8>), defaultFlags)
-			.setParameterInfo(0, "value");
+		builder.addNativeFunction("_setNegativeFlagByValue", lemon::wrap(&setNegativeFlagByValue<int8>), defaultFlags)
+			.setParameters("value");
 
-		module.addNativeFunction("_setNegativeFlagByValue", lemon::wrap(&setNegativeFlagByValue<int16>), defaultFlags)
-			.setParameterInfo(0, "value");
+		builder.addNativeFunction("_setNegativeFlagByValue", lemon::wrap(&setNegativeFlagByValue<int16>), defaultFlags)
+			.setParameters("value");
 
-		module.addNativeFunction("_setNegativeFlagByValue", lemon::wrap(&setNegativeFlagByValue<int32>), defaultFlags)
-			.setParameterInfo(0, "value");
+		builder.addNativeFunction("_setNegativeFlagByValue", lemon::wrap(&setNegativeFlagByValue<int32>), defaultFlags)
+			.setParameters("value");
 
 
 		// Memory access
-		module.addNativeFunction("copyMemory", lemon::wrap(&copyMemory), defaultFlags)
-			.setParameterInfo(0, "destAddress")
-			.setParameterInfo(1, "sourceAddress")
-			.setParameterInfo(2, "bytes");
+		builder.addNativeFunction("copyMemory", lemon::wrap(&copyMemory), defaultFlags)
+			.setParameters("destAddress", "sourceAddress", "bytes");
 
-		module.addNativeFunction("zeroMemory", lemon::wrap(&zeroMemory), defaultFlags)
-			.setParameterInfo(0, "startAddress")
-			.setParameterInfo(1, "bytes");
+		builder.addNativeFunction("zeroMemory", lemon::wrap(&zeroMemory), defaultFlags)
+			.setParameters("startAddress", "bytes");
 
-		module.addNativeFunction("fillMemory_u8", lemon::wrap(&fillMemory_u8), defaultFlags)
-			.setParameterInfo(0, "startAddress")
-			.setParameterInfo(1, "bytes")
-			.setParameterInfo(2, "value");
+		builder.addNativeFunction("fillMemory_u8", lemon::wrap(&fillMemory_u8), defaultFlags)
+			.setParameters("startAddress", "bytes", "value");
 
-		module.addNativeFunction("fillMemory_u16", lemon::wrap(&fillMemory_u16), defaultFlags)
-			.setParameterInfo(0, "startAddress")
-			.setParameterInfo(1, "bytes")
-			.setParameterInfo(2, "value");
+		builder.addNativeFunction("fillMemory_u16", lemon::wrap(&fillMemory_u16), defaultFlags)
+			.setParameters("startAddress", "bytes", "value");
 
-		module.addNativeFunction("fillMemory_u32", lemon::wrap(&fillMemory_u32), defaultFlags)
-			.setParameterInfo(0, "startAddress")
-			.setParameterInfo(1, "bytes")
-			.setParameterInfo(2, "value");
+		builder.addNativeFunction("fillMemory_u32", lemon::wrap(&fillMemory_u32), defaultFlags)
+			.setParameters("startAddress", "bytes", "value");
 
 
 		// Push and pop
-		module.addNativeFunction("push", lemon::wrap(&push), defaultFlags);
-		module.addNativeFunction("pop", lemon::wrap(&pop), defaultFlags);
+		builder.addNativeFunction("push", lemon::wrap(&push), defaultFlags);
+		builder.addNativeFunction("pop", lemon::wrap(&pop), defaultFlags);
 
 
 		// Persistent data
-		module.addNativeFunction("System.loadPersistentData", lemon::wrap(&System_loadPersistentData), defaultFlags)
-			.setParameterInfo(0, "targetAddress")
-			.setParameterInfo(1, "key")
-			.setParameterInfo(2, "bytes");
+		builder.addNativeFunction("System.loadPersistentData", lemon::wrap(&System_loadPersistentData), defaultFlags)
+			.setParameters("targetAddress", "bytes", "file", "key", "localFile");
 
-		module.addNativeFunction("System.savePersistentData", lemon::wrap(&System_savePersistentData), defaultFlags)
-			.setParameterInfo(0, "sourceAddress")
-			.setParameterInfo(1, "key")
-			.setParameterInfo(2, "bytes");
+		builder.addNativeFunction("System.savePersistentData", lemon::wrap(&System_savePersistentData), defaultFlags)
+			.setParameters("sourceAddress", "bytes", "file", "key", "localFile");
 
-
-		// SRAM
-		module.addNativeFunction("SRAM.load", lemon::wrap(&SRAM_load), defaultFlags)
-			.setParameterInfo(0, "address")
-			.setParameterInfo(1, "offset")
-			.setParameterInfo(2, "bytes");
-
-		module.addNativeFunction("SRAM.save", lemon::wrap(&SRAM_save), defaultFlags)
-			.setParameterInfo(0, "address")
-			.setParameterInfo(1, "offset")
-			.setParameterInfo(2, "bytes");
+		builder.addNativeFunction("System.removePersistentData", lemon::wrap(&System_removePersistentData), defaultFlags)
+			.setParameters("file", "key", "localFile");
 
 
 		// System
-		module.addNativeFunction("System.callFunctionByName", lemon::wrap(&System_callFunctionByName))	// Should not get inline executed
-			.setParameterInfo(0, "functionName");
+		builder.addNativeFunction("System.callFunctionByName", lemon::wrap(&System_callFunctionByName))	// Should not get inline executed
+			.setParameters("functionName");
 
-		module.addNativeFunction("System.setupCallFrame", lemon::wrap(&System_setupCallFrame1))		// Should not get inline executed
-			.setParameterInfo(0, "functionName");
+		builder.addNativeFunction("System.setupCallFrame", lemon::wrap(&System_setupCallFrame1))		// Should not get inline executed
+			.setParameters("functionName");
 
-		module.addNativeFunction("System.setupCallFrame", lemon::wrap(&System_setupCallFrame2))		// Should not get inline executed
-			.setParameterInfo(0, "functionName")
-			.setParameterInfo(1, "labelName");
+		builder.addNativeFunction("System.setupCallFrame", lemon::wrap(&System_setupCallFrame2))		// Should not get inline executed
+			.setParameters("functionName", "labelName");
 
-		module.addNativeFunction("System.getGlobalVariableValueByName", lemon::wrap(&System_getGlobalVariableValueByName), defaultFlags)
-			.setParameterInfo(0, "variableName");
+		builder.addNativeFunction("System.getGlobalVariableValueByName", lemon::wrap(&System_getGlobalVariableValueByName), defaultFlags)
+			.setParameters("variableName");
 
-		module.addNativeFunction("System.setGlobalVariableValueByName", lemon::wrap(&System_setGlobalVariableValueByName), defaultFlags)
-			.setParameterInfo(0, "variableName")
-			.setParameterInfo(1, "value");
+		builder.addNativeFunction("System.setGlobalVariableValueByName", lemon::wrap(&System_setGlobalVariableValueByName), defaultFlags)
+			.setParameters("variableName", "value");
 
-		module.addNativeFunction("System.rand", lemon::wrap(&System_rand), defaultFlags);
+		builder.addNativeFunction("System.rand", lemon::wrap(&System_rand), defaultFlags);
 
-		module.addNativeFunction("System.getPlatformFlags", lemon::wrap(&System_getPlatformFlags), defaultFlags);
+		builder.addNativeFunction("System.randomFloat", lemon::wrap(&System_randomFloat), defaultFlags);
 
-		module.addNativeFunction("System.hasPlatformFlag", lemon::wrap(&System_hasPlatformFlag), defaultFlags)
-			.setParameterInfo(0, "flag");
+		builder.addNativeFunction("System.randRange", lemon::wrap(&System_randRange1), defaultFlags)
+			.setParameters("minimum", "maximum");
+
+		builder.addNativeFunction("System.randRange", lemon::wrap(&System_randRange2), defaultFlags)
+			.setParameters("minimum", "maximum");
+
+		builder.addNativeFunction("System.getPlatformFlags", lemon::wrap(&System_getPlatformFlags), defaultFlags);
+
+		builder.addNativeFunction("System.hasPlatformFlag", lemon::wrap(&System_hasPlatformFlag), defaultFlags)
+			.setParameters("flag");
 
 
 		// Access external data
-		module.addNativeFunction("System.hasExternalRawData", lemon::wrap(&System_hasExternalRawData), defaultFlags)
-			.setParameterInfo(0, "key");
+		builder.addNativeFunction("System.hasExternalRawData", lemon::wrap(&System_hasExternalRawData), defaultFlags)
+			.setParameters("key");
 
-		module.addNativeFunction("System.loadExternalRawData", lemon::wrap(&System_loadExternalRawData1), defaultFlags)
-			.setParameterInfo(0, "key")
-			.setParameterInfo(1, "targetAddress")
-			.setParameterInfo(2, "offset")
-			.setParameterInfo(3, "maxBytes")
-			.setParameterInfo(4, "loadOriginalData")
-			.setParameterInfo(5, "loadModdedData");
+		builder.addNativeFunction("System.loadExternalRawData", lemon::wrap(&System_loadExternalRawData1), defaultFlags)
+			.setParameters("key", "targetAddress", "offset", "maxBytes", "loadOriginalData", "loadModdedData");
 
-		module.addNativeFunction("System.loadExternalRawData", lemon::wrap(&System_loadExternalRawData2), defaultFlags)
-			.setParameterInfo(0, "key")
-			.setParameterInfo(1, "targetAddress");
+		builder.addNativeFunction("System.loadExternalRawData", lemon::wrap(&System_loadExternalRawData2), defaultFlags)
+			.setParameters("key", "targetAddress");
 
-		module.addNativeFunction("System.hasExternalPaletteData", lemon::wrap(&System_hasExternalPaletteData), defaultFlags)
-			.setParameterInfo(0, "key")
-			.setParameterInfo(1, "line");
+		builder.addNativeFunction("System.hasExternalPaletteData", lemon::wrap(&System_hasExternalPaletteData), defaultFlags)
+			.setParameters("key", "line");
 
-		module.addNativeFunction("System.loadExternalPaletteData", lemon::wrap(&System_loadExternalPaletteData), defaultFlags)
-			.setParameterInfo(0, "key")
-			.setParameterInfo(1, "line")
-			.setParameterInfo(2, "targetAddress")
-			.setParameterInfo(3, "maxColors");
+		builder.addNativeFunction("System.loadExternalPaletteData", lemon::wrap(&System_loadExternalPaletteData), defaultFlags)
+			.setParameters("key", "line", "targetAddress", "maxColors");
 	}
 
 	// High-level functionality
 	{
 		// Input
-		module.addNativeFunction("Input.getController", lemon::wrap(&Input_getController), defaultFlags)
-			.setParameterInfo(0, "controllerIndex");
+		builder.addNativeFunction("Input.getController", lemon::wrap(&Input_getController), defaultFlags)
+			.setParameters("controllerIndex");
 
-		module.addNativeFunction("Input.getControllerPrevious", lemon::wrap(&Input_getControllerPrevious), defaultFlags)
-			.setParameterInfo(0, "controllerIndex");
+		builder.addNativeFunction("Input.getControllerPrevious", lemon::wrap(&Input_getControllerPrevious), defaultFlags)
+			.setParameters("controllerIndex");
 
-		module.addNativeFunction("buttonDown", lemon::wrap(&Input_buttonDown), defaultFlags)			// Deprecated
-			.setParameterInfo(0, "index");
+		builder.addNativeFunction("buttonDown", lemon::wrap(&Input_buttonDown), defaultFlags)			// Deprecated
+			.setParameters("index");
 
-		module.addNativeFunction("buttonPressed", lemon::wrap(&Input_buttonPressed), defaultFlags)		// Deprecated
-			.setParameterInfo(0, "index");
+		builder.addNativeFunction("buttonPressed", lemon::wrap(&Input_buttonPressed), defaultFlags)		// Deprecated
+			.setParameters("index");
 
-		module.addNativeFunction("Input.buttonDown", lemon::wrap(&Input_buttonDown), defaultFlags)
-			.setParameterInfo(0, "index");
+		builder.addNativeFunction("Input.buttonDown", lemon::wrap(&Input_buttonDown), defaultFlags)
+			.setParameters("index");
 
-		module.addNativeFunction("Input.buttonPressed", lemon::wrap(&Input_buttonPressed), defaultFlags)
-			.setParameterInfo(0, "index");
+		builder.addNativeFunction("Input.buttonPressed", lemon::wrap(&Input_buttonPressed), defaultFlags)
+			.setParameters("index");
 
-		module.addNativeFunction("Input.setTouchInputMode", lemon::wrap(&Input_setTouchInputMode), defaultFlags)
-			.setParameterInfo(0, "mode");
+		builder.addNativeFunction("Input.setTouchInputMode", lemon::wrap(&Input_setTouchInputMode), defaultFlags)
+			.setParameters("mode");
 
-		module.addNativeFunction("Input.resetControllerRumble", lemon::wrap(&Input_resetControllerRumble), defaultFlags)
-			.setParameterInfo(0, "playerIndex");
+		builder.addNativeFunction("Input.resetControllerRumble", lemon::wrap(&Input_resetControllerRumble), defaultFlags)
+			.setParameters("playerIndex");
 
-		module.addNativeFunction("Input.setControllerRumble", lemon::wrap(&Input_setControllerRumble), defaultFlags)
-			.setParameterInfo(0, "playerIndex")
-			.setParameterInfo(1, "lowFrequencyRumble")
-			.setParameterInfo(2, "highFrequencyRumble")
-			.setParameterInfo(3, "milliseconds");
+		builder.addNativeFunction("Input.setControllerRumble", lemon::wrap(&Input_setControllerRumble), defaultFlags)
+			.setParameters("playerIndex", "lowFrequencyRumble", "highFrequencyRumble", "milliseconds");
 
-		module.addNativeFunction("Input.setControllerLEDs", lemon::wrap(&Input_setControllerLEDs), defaultFlags)
-			.setParameterInfo(0, "playerIndex")
-			.setParameterInfo(1, "color");
+		builder.addNativeFunction("Input.setControllerLEDs", lemon::wrap(&Input_setControllerLEDs), defaultFlags)
+			.setParameters("playerIndex", "color");
 
 		// Yield
-		module.addNativeFunction("yieldExecution", lemon::wrap(&yieldExecution));	// Should not get inline executed
+		builder.addNativeFunction("yieldExecution", lemon::wrap(&yieldExecution));	// Should not get inline executed
 	}
 
 	// Renderer bindings
@@ -1044,92 +1103,75 @@ void LemonScriptBindings::registerBindings(lemon::Module& module)
 
 	{
 		// Audio
-		module.addNativeFunction("Audio.getAudioKeyType", lemon::wrap(&Audio_getAudioKeyType), defaultFlags)
-			.setParameterInfo(0, "sfxId");
+		builder.addNativeFunction("Audio.getAudioKeyType", lemon::wrap(&Audio_getAudioKeyType), defaultFlags)
+			.setParameters("sfxId");
 
-		module.addNativeFunction("Audio.isPlayingAudio", lemon::wrap(&Audio_isPlayingAudio), defaultFlags)
-			.setParameterInfo(0, "sfxId");
+		builder.addNativeFunction("Audio.isPlayingAudio", lemon::wrap(&Audio_isPlayingAudio), defaultFlags)
+			.setParameters("sfxId");
 
-		module.addNativeFunction("Audio.playAudio", lemon::wrap(&Audio_playAudio1), defaultFlags)
-			.setParameterInfo(0, "sfxId")
-			.setParameterInfo(1, "contextId");
+		builder.addNativeFunction("Audio.playAudio", lemon::wrap(&Audio_playAudio1), defaultFlags)
+			.setParameters("sfxId", "contextId");
 
-		module.addNativeFunction("Audio.playAudio", lemon::wrap(&Audio_playAudio2), defaultFlags)
-			.setParameterInfo(0, "sfxId");
+		builder.addNativeFunction("Audio.playAudio", lemon::wrap(&Audio_playAudio2), defaultFlags)
+			.setParameters("sfxId");
 
-		module.addNativeFunction("Audio.stopChannel", lemon::wrap(&Audio_stopChannel), defaultFlags)
-			.setParameterInfo(0, "channel");
+		builder.addNativeFunction("Audio.stopChannel", lemon::wrap(&Audio_stopChannel), defaultFlags)
+			.setParameters("channel");
 
-		module.addNativeFunction("Audio.fadeInChannel", lemon::wrap(&Audio_fadeInChannel), defaultFlags)
-			.setParameterInfo(0, "channel")
-			.setParameterInfo(1, "seconds");
+		builder.addNativeFunction("Audio.fadeInChannel", lemon::wrap(&Audio_fadeInChannel), defaultFlags)
+			.setParameters("channel", "seconds");
 
-		module.addNativeFunction("Audio.fadeInChannel", lemon::wrap(&Audio_fadeInChannel2), defaultFlags)
-			.setParameterInfo(0, "channel")
-			.setParameterInfo(1, "length");
+		builder.addNativeFunction("Audio.fadeInChannel", lemon::wrap(&Audio_fadeInChannel2), defaultFlags)
+			.setParameters("channel", "length");
 
-		module.addNativeFunction("Audio.fadeOutChannel", lemon::wrap(&Audio_fadeOutChannel), defaultFlags)
-			.setParameterInfo(0, "channel")
-			.setParameterInfo(1, "seconds");
+		builder.addNativeFunction("Audio.fadeOutChannel", lemon::wrap(&Audio_fadeOutChannel), defaultFlags)
+			.setParameters("channel", "seconds");
 
-		module.addNativeFunction("Audio.fadeOutChannel", lemon::wrap(&Audio_fadeOutChannel2), defaultFlags)
-			.setParameterInfo(0, "channel")
-			.setParameterInfo(1, "length");
+		builder.addNativeFunction("Audio.fadeOutChannel", lemon::wrap(&Audio_fadeOutChannel2), defaultFlags)
+			.setParameters("channel", "length");
 
-		module.addNativeFunction("Audio.playOverride", lemon::wrap(&Audio_playOverride), defaultFlags)
-			.setParameterInfo(0, "sfxId")
-			.setParameterInfo(1, "contextId")
-			.setParameterInfo(2, "channelId")
-			.setParameterInfo(3, "overriddenChannelId");
+		builder.addNativeFunction("Audio.playOverride", lemon::wrap(&Audio_playOverride), defaultFlags)
+			.setParameters("sfxId", "contextId", "channelId", "overriddenChannelId");
 
-		module.addNativeFunction("Audio.enableAudioModifier", lemon::wrap(&Audio_enableAudioModifier), defaultFlags)
-			.setParameterInfo(0, "channel")
-			.setParameterInfo(1, "context")
-			.setParameterInfo(2, "postfix")
-			.setParameterInfo(3, "relativeSpeed");
+		builder.addNativeFunction("Audio.enableAudioModifier", lemon::wrap(&Audio_enableAudioModifier), defaultFlags)
+			.setParameters("channel", "context", "postfix", "relativeSpeed");
 
-		module.addNativeFunction("Audio.enableAudioModifier", lemon::wrap(&Audio_enableAudioModifier2), defaultFlags)
-			.setParameterInfo(0, "channel")
-			.setParameterInfo(1, "context")
-			.setParameterInfo(2, "postfix")
-			.setParameterInfo(3, "relativeSpeed");
+		builder.addNativeFunction("Audio.enableAudioModifier", lemon::wrap(&Audio_enableAudioModifier2), defaultFlags)
+			.setParameters("channel", "context", "postfix", "relativeSpeed");
 
-		module.addNativeFunction("Audio.disableAudioModifier", lemon::wrap(&Audio_disableAudioModifier), defaultFlags)
-			.setParameterInfo(0, "channel")
-			.setParameterInfo(1, "context");
+		builder.addNativeFunction("Audio.disableAudioModifier", lemon::wrap(&Audio_disableAudioModifier), defaultFlags)
+			.setParameters("channel", "context");
 
 
 		// Misc
-		module.addNativeFunction("Mods.isModActive", lemon::wrap(&Mods_isModActive), defaultFlags)
-			.setParameterInfo(0, "modName");
+		builder.addNativeFunction("Mods.isModActive", lemon::wrap(&Mods_isModActive), defaultFlags)
+			.setParameters("modName");
 
-		module.addNativeFunction("Mods.getModPriority", lemon::wrap(&Mods_getModPriority), defaultFlags)
-			.setParameterInfo(0, "modName");
+		builder.addNativeFunction("Mods.getModPriority", lemon::wrap(&Mods_getModPriority), defaultFlags)
+			.setParameters("modName");
 	}
 
 	// Debug features
 	{
 		// Debug log output
 		{
-			lemon::UserDefinedVariable& var = module.addUserDefinedVariable("Log", &lemon::PredefinedDataTypes::UINT_32);
+			lemon::UserDefinedVariable& var = module.addUserDefinedVariable("Log", &lemon::PredefinedDataTypes::ANY);
 			var.mSetter = std::bind(logSetter, std::placeholders::_1, false);
 		}
 		{
-			lemon::UserDefinedVariable& var = module.addUserDefinedVariable("LogDec", &lemon::PredefinedDataTypes::UINT_32);
+			lemon::UserDefinedVariable& var = module.addUserDefinedVariable("LogDec", &lemon::PredefinedDataTypes::ANY);
 			var.mSetter = std::bind(logSetter, std::placeholders::_1, true);
 		}
 
-		module.addNativeFunction("debugLog", lemon::wrap(&debugLog), defaultFlags)
-			.setParameterInfo(0, "value");
+		builder.addNativeFunction("debugLog", lemon::wrap(&debugLog), defaultFlags)
+			.setParameters("value");
 
-		module.addNativeFunction("debugLogColors", lemon::wrap(&debugLogColors), defaultFlags)
-			.setParameterInfo(0, "name")
-			.setParameterInfo(1, "startAddress")
-			.setParameterInfo(2, "numColors");
+		builder.addNativeFunction("debugLogColors", lemon::wrap(&debugLogColors), defaultFlags)
+			.setParameters("name", "startAddress", "numColors");
 
 	#if 0
 		// Only for debugging value stack issues in lemonscript itself
-		module.addNativeFunction("debugLogValueStack", lemon::wrap(&debugLogValueStack), defaultFlags);
+		builder.addNativeFunction("debugLogValueStack", lemon::wrap(&debugLogValueStack), defaultFlags);
 	#endif
 
 
@@ -1137,74 +1179,63 @@ void LemonScriptBindings::registerBindings(lemon::Module& module)
 		for (int i = 0; i < 10; ++i)
 		{
 			lemon::UserDefinedVariable& var = module.addUserDefinedVariable("Key" + std::to_string(i), &lemon::PredefinedDataTypes::UINT_8);
-			var.mGetter = std::bind(debugKeyGetter, i);
+			var.mGetter = std::bind(debugKeyGetter, std::placeholders::_1, i);
 		}
 
 
 		// Watches
-		module.addNativeFunction("debugWatch", lemon::wrap(&debugWatch), defaultFlags)
-			.setParameterInfo(0, "address")
-			.setParameterInfo(1, "bytes");
+		builder.addNativeFunction("debugWatch", lemon::wrap(&debugWatch), defaultFlags)
+			.setParameters("address", "bytes");
 
 
 		// Dump to file
-		module.addNativeFunction("debugDumpToFile", lemon::wrap(&debugDumpToFile), defaultFlags)
-			.setParameterInfo(0, "filename")
-			.setParameterInfo(1, "startAddress")
-			.setParameterInfo(2, "bytes");
+		builder.addNativeFunction("debugDumpToFile", lemon::wrap(&debugDumpToFile), defaultFlags)
+			.setParameters("filename", "startAddress", "bytes");
 
 
 		// ROM data analyser
-		module.addNativeFunction("ROMDataAnalyser.isEnabled", lemon::wrap(&ROMDataAnalyser_isEnabled), defaultFlags);
+		builder.addNativeFunction("ROMDataAnalyser.isEnabled", lemon::wrap(&ROMDataAnalyser_isEnabled), defaultFlags);
 
-		module.addNativeFunction("ROMDataAnalyser.hasEntry", lemon::wrap(&ROMDataAnalyser_hasEntry), defaultFlags)
-			.setParameterInfo(0, "category")
-			.setParameterInfo(1, "address");
+		builder.addNativeFunction("ROMDataAnalyser.hasEntry", lemon::wrap(&ROMDataAnalyser_hasEntry), defaultFlags)
+			.setParameters("category", "address");
 
-		module.addNativeFunction("ROMDataAnalyser.beginEntry", lemon::wrap(&ROMDataAnalyser_beginEntry), defaultFlags)
-			.setParameterInfo(0, "category")
-			.setParameterInfo(1, "address");
+		builder.addNativeFunction("ROMDataAnalyser.beginEntry", lemon::wrap(&ROMDataAnalyser_beginEntry), defaultFlags)
+			.setParameters("category", "address");
 
-		module.addNativeFunction("ROMDataAnalyser.endEntry", lemon::wrap(&ROMDataAnalyser_endEntry), defaultFlags);
+		builder.addNativeFunction("ROMDataAnalyser.endEntry", lemon::wrap(&ROMDataAnalyser_endEntry), defaultFlags);
 
-		module.addNativeFunction("ROMDataAnalyser.addKeyValue", lemon::wrap(&ROMDataAnalyser_addKeyValue), defaultFlags)
-			.setParameterInfo(0, "key")
-			.setParameterInfo(1, "value");
+		builder.addNativeFunction("ROMDataAnalyser.addKeyValue", lemon::wrap(&ROMDataAnalyser_addKeyValue), defaultFlags)
+			.setParameters("key", "value");
 
-		module.addNativeFunction("ROMDataAnalyser.beginObject", lemon::wrap(&ROMDataAnalyser_beginObject), defaultFlags)
-			.setParameterInfo(0, "key");
+		builder.addNativeFunction("ROMDataAnalyser.beginObject", lemon::wrap(&ROMDataAnalyser_beginObject), defaultFlags)
+			.setParameters("key");
 
-		module.addNativeFunction("ROMDataAnalyser.endObject", lemon::wrap(&ROMDataAnalyser_endObject), defaultFlags);
+		builder.addNativeFunction("ROMDataAnalyser.endObject", lemon::wrap(&ROMDataAnalyser_endObject), defaultFlags);
 
 
 		// Debug side panel
-		module.addNativeFunction("System.SidePanel.setupCustomCategory", lemon::wrap(&System_SidePanel_setupCustomCategory), defaultFlags)
-			.setParameterInfo(0, "shortName")
-			.setParameterInfo(1, "fullName");
+		builder.addNativeFunction("System.SidePanel.setupCustomCategory", lemon::wrap(&System_SidePanel_setupCustomCategory), defaultFlags)
+			.setParameters("shortName", "fullName");
 
-		module.addNativeFunction("System.SidePanel.addOption", lemon::wrap(&System_SidePanel_addOption), defaultFlags)
-			.setParameterInfo(0, "text")
-			.setParameterInfo(1, "defaultValue");
+		builder.addNativeFunction("System.SidePanel.addOption", lemon::wrap(&System_SidePanel_addOption), defaultFlags)
+			.setParameters("text", "defaultValue");
 
-		module.addNativeFunction("System.SidePanel.addEntry", lemon::wrap(&System_SidePanel_addEntry), defaultFlags)
-			.setParameterInfo(0, "key");
+		builder.addNativeFunction("System.SidePanel.addEntry", lemon::wrap(&System_SidePanel_addEntry), defaultFlags)
+			.setParameters("key");
 
-		module.addNativeFunction("System.SidePanel.addLine", lemon::wrap(&System_SidePanel_addLine1), defaultFlags)
-			.setParameterInfo(0, "text")
-			.setParameterInfo(1, "indent")
-			.setParameterInfo(2, "color");
+		builder.addNativeFunction("System.SidePanel.addLine", lemon::wrap(&System_SidePanel_addLine1), defaultFlags)
+			.setParameters("text", "indent", "color");
 
-		module.addNativeFunction("System.SidePanel.addLine", lemon::wrap(&System_SidePanel_addLine2), defaultFlags)
-			.setParameterInfo(0, "text")
-			.setParameterInfo(1, "indent");
+		builder.addNativeFunction("System.SidePanel.addLine", lemon::wrap(&System_SidePanel_addLine2), defaultFlags)
+			.setParameters("text", "indent");
 
-		module.addNativeFunction("System.SidePanel.isEntryHovered", lemon::wrap(&System_SidePanel_isEntryHovered), defaultFlags)
-			.setParameterInfo(0, "key");
+		builder.addNativeFunction("System.SidePanel.isEntryHovered", lemon::wrap(&System_SidePanel_isEntryHovered), defaultFlags)
+			.setParameters("key");
 
 
 		// This is not really debugging-related, as it's meant to be written in non-developer environment as well
-		module.addNativeFunction("System.writeDisplayLine", lemon::wrap(&System_writeDisplayLine), defaultFlags)
-			.setParameterInfo(0, "text");
+		builder.addNativeFunction("System.writeDisplayLine", lemon::wrap(&System_writeDisplayLine), defaultFlags)
+			.setParameters("text");
 	}
 
 	// Register game-specific script bindings

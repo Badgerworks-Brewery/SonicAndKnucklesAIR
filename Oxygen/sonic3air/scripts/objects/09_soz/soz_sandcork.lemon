@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -123,7 +123,7 @@ function void fn041df4()
 {
 	UpdateMovementStraightSimple()
 	objA0.velocity.y += 0x18
-	if (objA0.velocity.y >= 0x0400 && s8[A0 + 0x04] >= 0)
+	if (objA0.velocity.y >= 0x0400 && !(objA0.render_flags & render_flag.VISIBLE))
 	{
 		UnloadObject()
 	}
@@ -164,7 +164,7 @@ function void fn041e6a()
 		u16[A0 + 0x30] -= 4
 	}
 
-	if ((u8[A0 - 0x01fb] & 0x0f) == 0 && s8[A0 + 0x04] < 0)
+	if ((u8[A0 - 0x01fb] & 0x0f) == 0 && (objA0.render_flags & render_flag.VISIBLE))
 	{
 		playSound(0xc8)
 	}
@@ -173,6 +173,8 @@ function void fn041e6a()
 }
 
 
+
+// Used in FBZ and SOZ to incrementally load plane content
 
 //# address-hook(0x04efbc) end(0x04efc8)
 function void fn04efbc()

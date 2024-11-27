@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -9,6 +9,7 @@
 #pragma once
 
 #include "oxygen/rendering/parts/RenderItem.h"
+#include <optional>
 
 
 class PatternManager;
@@ -20,7 +21,8 @@ public:
 
 	struct SpriteHandleData
 	{
-		uint64 mKey = 0;
+		uint32 mHandle = 0;		// Sprite handle ID
+		uint64 mKey = 0;		// Sprite key
 		Vec2i  mPosition;
 		uint16 mRenderQueue = 0;
 		bool   mFlipX = false;
@@ -28,13 +30,15 @@ public:
 		bool   mPriorityFlag = false;
 		Color  mTintColor = Color::WHITE;
 		Color  mAddedColor = Color::TRANSPARENT;
-		bool   mUseGlobalComponentTint = true;
+		std::optional<bool> mUseGlobalComponentTint;
 		BlendMode mBlendMode = BlendMode::ALPHA;
 		Space  mCoordinatesSpace = Space::SCREEN;	// The coordinate system that "mPosition" is referring to
 		Transform2D mTransformation;
 		float  mRotation = 0.0f;
 		Vec2f  mScale = Vec2f(1.0f, 1.0f);
 		bool   mUseUpscaledSprite = false;			// Only supported for palette sprites
+		uint64 mPrimaryPaletteKey = 0;				// Only supported for palette sprites
+		uint64 mSecondaryPaletteKey = 0;			// Only supported for palette sprites
 		uint16 mAtex = 0;							// Only supported for palette sprites
 		uint64 mSpriteTag = 0;
 		Vec2i  mTaggedSpritePosition;
@@ -61,6 +65,7 @@ public:
 
 	void addRectangle(const Recti& rect, const Color& color, uint16 renderQueue, Space space, bool useGlobalComponentTint);
 	void addText(std::string_view fontKeyString, uint64 fontKeyHash, const Vec2i& position, std::string_view textString, uint64 textHash, const Color& color, int alignment, int spacing, uint16 renderQueue, Space space, bool useGlobalComponentTint);
+	void addViewport(const Recti& rect, uint16 renderQueue);
 
 	uint32 addSpriteHandle(uint64 key, const Vec2i& position, uint16 renderQueue);
 	SpriteHandleData* getSpriteHandleData(uint32 spriteHandle);
@@ -94,8 +99,9 @@ private:
 	renderitems::CustomSpriteInfoBase* addSpriteByKey(uint64 key);
 	void checkSpriteTag(renderitems::SpriteInfo& sprite);
 
+	bool checkRenderItemLimit();
 	void processSpriteHandles();
-	void grabAddedSprites();
+	void grabAddedItems();
 	void collectLegacySprites();
 
 private:
@@ -111,9 +117,10 @@ private:
 
 	ItemSet mContexts[RenderItem::NUM_CONTEXTS];
 	ItemSet mAddedItems;
+	bool mLoggedLimitWarning = false;
 
 	uint32 mNextSpriteHandle = 1;
-	std::unordered_map<uint32, SpriteHandleData> mSpritesHandles;
+	std::vector<SpriteHandleData> mSpriteHandles;
 	std::pair<uint32, SpriteHandleData*> mLatestSpriteHandle;
 
 	struct TaggedSpriteData

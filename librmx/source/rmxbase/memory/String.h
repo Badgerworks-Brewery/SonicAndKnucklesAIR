@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2023 by Eukaryot
+*	Copyright (C) 2008-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -74,6 +74,7 @@ public:
 
 	inline int length() const			{ return (int)mLength; }
 	inline bool empty() const			{ return (mLength == 0); }
+	inline bool isEmpty() const			{ return (mLength == 0); }
 	inline bool nonEmpty() const		{ return (mLength != 0); }
 	inline int getReservedSize() const	{ return mSize; }
 
@@ -106,6 +107,7 @@ public:
 
 	bool equal(const StringTemplate& str) const;
 	int compare(const StringTemplate& str) const;
+	int compare(const CHAR* str) const;
 
 	int countChar(CHAR ch) const;
 	int findChar(CHAR ch, int pos, int dir) const;
@@ -184,6 +186,13 @@ public:
 	CLASS operator+(float value) const			{ CLASS result(*this); result.addFloat(value);  return result; }
 	CLASS operator+(double value) const			{ CLASS result(*this); result.addDouble(value); return result; }
 
+	inline bool operator==(const CHAR* str) const	{ return compare(str) == 0; }
+	inline bool operator!=(const CHAR* str) const	{ return compare(str) != 0; }
+	inline bool operator<=(const CHAR* str) const	{ return compare(str) <= 0; }
+	inline bool operator>=(const CHAR* str) const	{ return compare(str) >= 0; }
+	inline bool operator<(const CHAR* str) const	{ return compare(str) < 0; }
+	inline bool operator>(const CHAR* str) const	{ return compare(str) > 0; }
+
 	inline bool operator==(const CLASS& str) const	{ return equal(str); }
 	inline bool operator!=(const CLASS& str) const	{ return !equal(str); }
 	inline bool operator<=(const CLASS& str) const	{ return compare(str) <= 0; }
@@ -230,6 +239,8 @@ public:
 	WString toWString() const;
 	std::string toStdString() const;
 	std::wstring toStdWString() const;
+
+	operator const std::string_view() const  { return std::string_view(mData, mLength); }
 };
 
 
@@ -258,6 +269,8 @@ public:
 	String toUTF8() const;
 	std::string toStdString() const;
 	std::wstring toStdWString() const;
+
+	operator const std::wstring_view() const  { return std::wstring_view(mData, mLength); }
 
 	void fromUTF8(const char* str, size_t length);
 	void fromUTF8(const String& str);

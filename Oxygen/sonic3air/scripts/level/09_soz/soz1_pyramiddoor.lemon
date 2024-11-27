@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -210,8 +210,8 @@ function void fn0560a2()
 	D0.u16 = objA0.countdown_value & 0x3f
 	objA0.position.x.u16 = (u8[A1 + D0.u16] & 0x01) + objA0.velocity.x
 
-	#if STANDALONE
-		// Mask out sprites below the ground right under the door
-		Renderer.addSpriteMaskWorld(0x4370, 0x0a00, 92, 64, 0xd000, 1)
-	#endif
+#if STANDALONE
+	// Mask out sprites below the ground right under the door
+	Renderer.addSpriteMaskWorld(0x4370, 0x0a00, 92, 64, 0xd000, 1)
+#endif
 }

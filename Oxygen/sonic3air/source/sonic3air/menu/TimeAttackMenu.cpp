@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -137,7 +137,7 @@ void TimeAttackMenu::initialize()
 	RMX_CHECK(nullptr != option, "Option for Max Control not found", );
 	if (nullptr != option)
 	{
-		option->mVisible = PlayerProgress::instance().isSecretUnlocked(SharedDatabase::Secret::SECRET_SUPER_PEELOUT);
+		option->mVisible = PlayerProgress::instance().mUnlocks.isSecretUnlocked(SharedDatabase::Secret::SECRET_SUPER_PEELOUT);
 	}
 }
 

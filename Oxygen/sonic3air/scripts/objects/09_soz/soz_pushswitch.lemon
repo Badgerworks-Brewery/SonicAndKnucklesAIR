@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -173,11 +173,11 @@ function void fn0419fa()
 	if (((objA0.flags2a & 0x01) == 0) == sign)
 		return
 
-	#if STANDALONE
-		// Check character's orientation, is he faced away?
-		if (sign != ((u8[A1 + 0x2a] & char.flag.FACING_LEFT) != 0))
-			return
-	#endif
+#if STANDALONE
+	// Check character's orientation, is he faced away?
+	if (sign != ((u8[A1 + 0x2a] & char.flag.FACING_LEFT) != 0))
+		return
+#endif
 
 	if (u16[A0 + 0x36] != 0x80)
 	{

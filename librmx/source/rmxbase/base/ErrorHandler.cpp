@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2023 by Eukaryot
+*	Copyright (C) 2008-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -26,6 +26,10 @@
 		#include <DbgHelp.h>
 		#pragma warning(pop)
 	#endif
+#endif
+
+#ifdef PLATFORM_VITA
+	#include <psp2/kernel/clib.h>
 #endif
 
 
@@ -174,10 +178,14 @@ namespace rmx
 
 	void ErrorHandling::printToLog(ErrorSeverity errorSeverity, const std::string& message)
 	{
+	#if !defined(PLATFORM_VITA)
 		if (nullptr != mLogger)
 		{
 			mLogger->logMessage(errorSeverity, message);
 		}
+	#else
+		sceClibPrintf("[ERROR] %s\n", message.c_str());
+	#endif
 	}
 
 	bool ErrorHandling::handleAssertBreak(ErrorSeverity errorSeverity, const std::string& message, const char* filename, int line)
@@ -186,7 +194,7 @@ namespace rmx
 		printToLog(errorSeverity, message);
 
 		// Check if ignored
-		const uint32 hash = (uint32)getMurmur2_64(String(filename)) ^ (uint32)line;
+		const uint32 hash = (uint32)getMurmur2_64(filename) ^ (uint32)line;
 		if (gIgnoredAssertHashes.count(hash) != 0)
 			return false;
 

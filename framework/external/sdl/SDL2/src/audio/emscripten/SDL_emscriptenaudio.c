@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -27,6 +27,11 @@
 #include "SDL_emscriptenaudio.h"
 
 #include <emscripten/emscripten.h>
+
+/* !!! FIXME: this currently expects that the audio callback runs in the main thread,
+   !!! FIXME:  in intervals when the application isn't running, but that may not be
+   !!! FIXME:  true always once pthread support becomes widespread. Revisit this code
+   !!! FIXME:  at some point and see what needs to be done for that! */
 
 static void
 FeedAudioDevice(_THIS, const void *buf, const int buflen)

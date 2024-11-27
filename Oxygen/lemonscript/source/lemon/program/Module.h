@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -30,11 +30,19 @@ namespace lemon
 	friend class ModuleSerializer;
 
 	public:
-		explicit Module(const std::string& name);
+		struct AppendedInfo
+		{
+			virtual ~AppendedInfo() {}
+		};
+
+	public:
+		explicit Module(const std::string& name, AppendedInfo* appendedInfo = nullptr);
 		~Module();
 
-		inline const std::string& getModuleName() const { return mModuleName; }
-		inline uint64 getModuleId() const { return mModuleId; }
+		inline const std::string& getModuleName() const  { return mModuleName; }
+		inline uint64 getModuleId() const  { return mModuleId; }
+
+		inline AppendedInfo* getAppendedInfo() const  { return mAppendedInfo; }
 
 		void clear();
 
@@ -55,6 +63,8 @@ namespace lemon
 		ScriptFunction& addScriptFunction(FlyweightString name, const DataTypeDefinition* returnType, const Function::ParameterList& parameters, std::vector<FlyweightString>* aliasNames = nullptr);
 		NativeFunction& addNativeFunction(FlyweightString name, const NativeFunction::FunctionWrapper& functionWrapper, BitFlagSet<Function::Flag> flags = BitFlagSet<Function::Flag>());
 		NativeFunction& addNativeMethod(FlyweightString context, FlyweightString name, const NativeFunction::FunctionWrapper& functionWrapper, BitFlagSet<Function::Flag> flags = BitFlagSet<Function::Flag>());
+
+		uint32 addOrFindCallableFunctionAddress(const Function& function);
 
 		// Variables
 		inline const std::vector<Variable*>& getGlobalVariables() const  { return mGlobalVariables; }
@@ -97,6 +107,8 @@ namespace lemon
 		std::string mModuleName;
 		uint64 mModuleId = 0;
 
+		AppendedInfo* mAppendedInfo = nullptr;
+
 		// Preprocessor definitions
 		std::vector<Constant*> mPreprocessorDefinitions;	// Re-using the Constant class here, and also mConstantPool
 
@@ -106,6 +118,9 @@ namespace lemon
 		std::vector<ScriptFunction*> mScriptFunctions;
 		ObjectPool<ScriptFunction, 64> mScriptFunctionPool;
 		ObjectPool<NativeFunction, 32> mNativeFunctionPool;
+
+		// Callable function addresses
+		std::unordered_map<uint32, uint64> mCallableFunctions;
 
 		// Variables
 		uint32 mFirstVariableID = 0;

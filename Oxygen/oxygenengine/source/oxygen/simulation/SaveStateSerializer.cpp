@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -10,9 +10,11 @@
 #include "oxygen/simulation/SaveStateSerializer.h"
 #include "oxygen/simulation/CodeExec.h"
 #include "oxygen/simulation/EmulatorInterface.h"
+#include "oxygen/simulation/Simulation.h"
+#include "oxygen/simulation/SimulationState.h"
 #include "oxygen/application/video/VideoOut.h"
+#include "oxygen/rendering/parts/palette/PaletteManager.h"
 #include "oxygen/rendering/parts/RenderParts.h"
-#include "oxygen/rendering/parts/PaletteManager.h"
 
 
 namespace
@@ -21,12 +23,15 @@ namespace
 	//  - 2 and lower: See serialization code for changes
 	//  - 3: Using shared memory access flags
 	//  - 4: Added more rendering data (scroll offsets, sprites, etc.)
-	static const constexpr uint8 STANDALONE_SAVESTATE_FORMATVERSION = 4;
+	//  - 5: Added data for ROM based sprites
+	//  - 6: Added spaces manager serialization
+	static const constexpr uint8 OXYGEN_SAVESTATE_FORMATVERSION = 6;
 }
 
 
-SaveStateSerializer::SaveStateSerializer(CodeExec& codeExec, RenderParts& renderParts) :
-	mCodeExec(codeExec),
+SaveStateSerializer::SaveStateSerializer(Simulation& simulation, RenderParts& renderParts) :
+	mSimulation(simulation),
+	mCodeExec(simulation.getCodeExec()),
 	mRenderParts(renderParts)
 {
 }
@@ -65,7 +70,7 @@ bool SaveStateSerializer::saveState(std::vector<uint8>& output)
 {
 	// Save state
 	VectorBinarySerializer serializer(false, output);
-	StateType stateType = StateType::STANDALONE;	// This is actually ignored
+	StateType stateType = StateType::OXYGEN;	// This is actually ignored
 	return serializeState(serializer, stateType);
 }
 
@@ -94,13 +99,13 @@ bool SaveStateSerializer::serializeState(VectorBinarySerializer& serializer, Sta
 			stateType = StateType::GENSX;
 			readGensxState(serializer);
 		}
-		else if (memcmp(signature, "AIR Standalone", 15) == 0)
+		else if (memcmp(signature, "AIR Standalone", 15) == 0)	// Deprecated since end of 2019
 		{
-			stateType = StateType::STANDALONE;
+			stateType = StateType::OXYGEN;
 		}
 		else if (memcmp(signature, "Oxygen_State__", 15) == 0)
 		{
-			stateType = StateType::STANDALONE;
+			stateType = StateType::OXYGEN;
 		}
 		else
 		{
@@ -109,15 +114,15 @@ bool SaveStateSerializer::serializeState(VectorBinarySerializer& serializer, Sta
 	}
 	else
 	{
-		stateType = StateType::STANDALONE;
+		stateType = StateType::OXYGEN;
 
 		memcpy(signature, "Oxygen_State__", 15);
-		signature[15] = STANDALONE_SAVESTATE_FORMATVERSION;
+		signature[15] = OXYGEN_SAVESTATE_FORMATVERSION;
 
 		serializer.serialize(signature, 16);
 	}
 
-	if (stateType == StateType::STANDALONE)
+	if (stateType == StateType::OXYGEN)
 	{
 		const uint8 formatVersion = signature[15];
 
@@ -171,16 +176,18 @@ bool SaveStateSerializer::serializeState(VectorBinarySerializer& serializer, Sta
 		// VSRAM
 		serializer.serialize(emulatorInterface.getVSRam(), 0x80);
 
-		// Other graphics managers
+		// Engine graphics state
 		mRenderParts.getPlaneManager().serializeSaveState(serializer, formatVersion);
 		mRenderParts.getScrollOffsetsManager().serializeSaveState(serializer, formatVersion);
 		mRenderParts.getSpriteManager().serializeSaveState(serializer, formatVersion);
-
-		// TODO: How about overlay manager and spaces manager?
+		mRenderParts.getSpacesManager().serializeSaveState(serializer, formatVersion);
 
 		// Lemon script runtime state
 		if (!mCodeExec.getLemonScriptRuntime().serializeRuntime(serializer))
 			return false;
+
+		// Simulation state
+		mSimulation.getSimulationState().serializeSaveState(serializer, formatVersion);
 	}
 
 	if (serializer.isReading())

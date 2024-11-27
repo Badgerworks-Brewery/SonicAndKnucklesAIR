@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -84,7 +84,7 @@ function void fn039f7e()
 				D0.u16 -= D1.u16
 				if (D0.u16 >= 0xfff0)
 				{
-					if (u8[A1 + 0x05] < 0x06 && debug_mode.state == 0)
+					if (u8[A1 + 0x05] < base_state.DIED && debug_mode.state == 0)
 					{
 						D2.u16 += D0.u16
 						D2.u16 += 0x03
@@ -193,7 +193,7 @@ function void fn03a0d6()
 		if (D1.u16 >= D5.u16)
 			return
 
-		if (u8[A1 + 0x05] >= 0x06 || debug_mode.state != 0 || s8[A1 + 0x2e] < 0)
+		if (u8[A1 + 0x05] >= base_state.DIED || debug_mode.state != 0 || s8[A1 + 0x2e] < 0)
 			return
 
 		if (D0.u16 >= 0x20 && D0.u16 < 0xe0)

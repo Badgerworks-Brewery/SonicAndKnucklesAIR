@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -33,6 +33,10 @@
 
 #endif
 
+#ifdef __vita__
+	#define SOMAXCONN 4096
+#endif
+
 
 void Sockets::startupSockets()
 {
@@ -60,7 +64,7 @@ void Sockets::shutdownSockets()
 
 bool Sockets::resolveToIP(const std::string& hostName, std::string& outIP)
 {
-#ifdef __EMSCRIPTEN__
+#if defined(__EMSCRIPTEN__) || defined(__vita__)
 	// Just return the input
 	outIP = hostName;
 	return true;
@@ -150,6 +154,7 @@ void SocketAddress::assureSockAddr() const
 	{
 		memset(&mSockAddr, 0, sizeof(mSockAddr));
 		bool success = false;
+	#if !defined(PLATFORM_SWITCH)	// The IPv6 part won't compile on Switch, but isn't really needed there anyways
 		{
 			// IPv6
 			sockaddr_in6& addr = *reinterpret_cast<sockaddr_in6*>(&mSockAddr);
@@ -157,6 +162,7 @@ void SocketAddress::assureSockAddr() const
 			addr.sin6_port = htons(mPort);
 			success = (1 == inet_pton(addr.sin6_family, mIP.c_str(), &addr.sin6_addr));
 		}
+	#endif
 		if (!success)
 		{
 			// IPv4
@@ -254,7 +260,7 @@ void TCPSocket::swapWith(TCPSocket& other)
 	std::swap(mInternal, other.mInternal);
 }
 
-bool TCPSocket::setupServer(uint16 serverPort)
+bool TCPSocket::setupServer(uint16 serverPort, bool useIPv6)
 {
 	if (nullptr == mInternal)
 	{
@@ -267,7 +273,7 @@ bool TCPSocket::setupServer(uint16 serverPort)
 
 	addrinfo hints;
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
+	hints.ai_family = useIPv6 ? AF_INET6 : AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 	hints.ai_flags = AI_PASSIVE;
@@ -290,9 +296,9 @@ bool TCPSocket::setupServer(uint16 serverPort)
 	if (mInternal->mSocket == INVALID_SOCKET)
 	{
 	#ifdef _WIN32
-		RMX_ERROR("bind failed with error: " << WSAGetLastError(), );
+		RMX_ERROR("socket failed with error: " << WSAGetLastError(), );
 	#else
-		RMX_ERROR("bind failed with error: " << result, );
+		RMX_ERROR("socket failed with error: " << result, );
 	#endif
 		close();
 		return false;
@@ -386,7 +392,7 @@ bool TCPSocket::acceptConnection(TCPSocket& outSocket)
 	return true;
 }
 
-bool TCPSocket::connectTo(const std::string& serverAddress, uint16 serverPort)
+bool TCPSocket::connectTo(const std::string& serverAddress, uint16 serverPort, bool useIPv6)
 {
 	if (nullptr == mInternal)
 	{
@@ -402,7 +408,7 @@ bool TCPSocket::connectTo(const std::string& serverAddress, uint16 serverPort)
 	{
 		addrinfo hints;
 		memset(&hints, 0, sizeof(hints));
-		hints.ai_family = AF_INET;
+		hints.ai_family = useIPv6 ? AF_INET6 : AF_INET;
 		hints.ai_socktype = SOCK_STREAM;	// Needed for TCP
 		hints.ai_protocol = IPPROTO_TCP;	// Use TCP
 
@@ -530,6 +536,7 @@ bool TCPSocket::receiveInternal(ReceiveResult& outReceiveResult)
 		}
 		else
 		{
+			outReceiveResult.mBuffer.clear();
 		#ifdef _WIN32
 			const int errorCode = WSAGetLastError();
 			if (errorCode == WSAECONNRESET)		// Ignore this error, see https://stackoverflow.com/questions/30749423/is-winsock-error-10054-wsaeconnreset-normal-with-udp-to-from-localhost
@@ -591,7 +598,7 @@ void UDPSocket::close()
 	mInternal->mLocalPort = 0;
 }
 
-bool UDPSocket::bindToPort(uint16 port)
+bool UDPSocket::bindToPort(uint16 port, bool useIPv6)
 {
 	if (nullptr == mInternal)
 	{
@@ -604,7 +611,7 @@ bool UDPSocket::bindToPort(uint16 port)
 
 	addrinfo hints;
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
+	hints.ai_family = useIPv6 ? AF_INET6 : AF_INET;
 	hints.ai_socktype = SOCK_DGRAM;
 	hints.ai_protocol = IPPROTO_UDP;
 	hints.ai_flags = AI_PASSIVE;
@@ -622,7 +629,11 @@ bool UDPSocket::bindToPort(uint16 port)
 	result = (int)::socket(addressInfo->ai_family, addressInfo->ai_socktype, addressInfo->ai_protocol);
 	if (result < 0)
 	{
-		RMX_ERROR("socket failed with error: " << mInternal->mSocket, );
+	#ifdef _WIN32
+		RMX_ERROR("socket failed with error: " << WSAGetLastError(), );
+	#else
+		RMX_ERROR("socket failed with error: " << result, );
+	#endif
 		::freeaddrinfo(addressInfo);
 		return false;
 	}
@@ -652,7 +663,7 @@ bool UDPSocket::bindToPort(uint16 port)
 	return true;
 }
 
-bool UDPSocket::bindToAnyPort()
+bool UDPSocket::bindToAnyPort(bool useIPv6)
 {
 	if (nullptr == mInternal)
 	{
@@ -664,7 +675,7 @@ bool UDPSocket::bindToAnyPort()
 	}
 
 	// Create a socket
-	mInternal->mSocket = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	mInternal->mSocket = ::socket(useIPv6 ? AF_INET6 : AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (mInternal->mSocket < 0)
 	{
 		RMX_ERROR("socket failed with error: " << mInternal->mSocket, );
@@ -686,7 +697,7 @@ bool UDPSocket::sendData(const uint8* data, size_t length, const SocketAddress& 
 	if (!isValid())
 		return false;
 
-	const int result = ::sendto(mInternal->mSocket, (const char*)data, (int)length, 0, (sockaddr*)destinationAddress.getSockAddr(), (int)sizeof(sockaddr));
+	const int result = ::sendto(mInternal->mSocket, (const char*)data, (int)length, 0, (sockaddr*)destinationAddress.getSockAddr(), (int)sizeof(sockaddr_storage));
 	if (result >= 0)
 		return true;
 
@@ -769,10 +780,11 @@ bool UDPSocket::receiveInternal(ReceiveResult& outReceiveResult)
 		outReceiveResult.mBuffer.resize(bytesRead + CHUNK_SIZE);
 
 		sockaddr_storage& senderAddr = *reinterpret_cast<sockaddr_storage*>(outReceiveResult.mSenderAddress.accessSockAddr());
-		socklen_t senderAddrSize = sizeof(sockaddr);
+		socklen_t senderAddrSize = sizeof(sockaddr_storage);
 		const int result = ::recvfrom(mInternal->mSocket, (char*)&outReceiveResult.mBuffer[bytesRead], CHUNK_SIZE, 0, (sockaddr*)&senderAddr, &senderAddrSize);
 		if (result < 0)
 		{
+			outReceiveResult.mBuffer.clear();
 		#ifdef _WIN32
 			const int errorCode = WSAGetLastError();
 			if (errorCode == WSAECONNRESET)		// Ignore this error, see https://stackoverflow.com/questions/30749423/is-winsock-error-10054-wsaeconnreset-normal-with-udp-to-from-localhost
@@ -785,7 +797,6 @@ bool UDPSocket::receiveInternal(ReceiveResult& outReceiveResult)
 				RMX_ERROR("recv failed with error: " << result, );
 			}
 		#endif
-			outReceiveResult.mBuffer.clear();
 			return false;
 		}
 

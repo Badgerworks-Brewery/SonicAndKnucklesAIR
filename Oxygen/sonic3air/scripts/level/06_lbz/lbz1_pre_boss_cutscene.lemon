@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -587,7 +587,7 @@ function void fn062800()
 {
 	u8[0xfffffaa9] = 0xff
 	A1 = 0xffff0000 + D0.u16
-	if (u8[A1 + 0x05] >= 0x06)
+	if (u8[A1 + 0x05] >= base_state.DIED)
 	{
 		fn0627c6()
 		return

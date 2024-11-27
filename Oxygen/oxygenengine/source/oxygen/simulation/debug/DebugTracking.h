@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -103,6 +103,8 @@ public:
 
 	// Debug watches
 	inline const std::vector<Watch*>& getWatches() const  { return mWatches; }
+	bool hasWatch(uint32 address, uint16 bytes) const;
+	int getExistingWatchIndex(uint32 address, uint16 bytes) const;
 	void updateWatches();
 	void clearWatches(bool clearPersistent = false);
 	void addWatch(uint32 address, uint16 bytes, bool persistent);

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -80,11 +80,12 @@ namespace lemon
 		//  - 0x0e = Change in serialization of std::wstring in rmx
 		//  - 0x0f = Smaller optimizations in serialization
 		//  - 0x10 = Opcode JUMP_SWITCH added
+		//  - 0x11 = Serialization of callable function addresses
 
 		// Signature and version number
 		const uint32 SIGNATURE = *(uint32*)"LMD|";	// "Lemonscript Module"
 		const uint16 MINIMUM_VERSION = 0x10;
-		uint16 version = 0x10;
+		uint16 version = 0x11;
 
 		if (outerSerializer.isReading())
 		{
@@ -177,6 +178,31 @@ namespace lemon
 
 		// Serialize functions
 		serializeFunctions(module, serializer, globalsLookup);
+
+		// Serialize callable function addresses
+		if (version >= 0x11)
+		{
+			if (serializer.isReading())
+			{
+				const size_t count = (size_t)serializer.read<uint16>();
+				module.mCallableFunctions.reserve(count);
+				for (size_t i = 0; i < count; ++i)
+				{
+					const uint32 address = serializer.read<uint32>();
+					const uint64 nameHash = serializer.read<uint64>();
+					module.mCallableFunctions[address] = nameHash;
+				}
+			}
+			else
+			{
+				serializer.writeAs<uint16>(module.mCallableFunctions.size());
+				for (const auto& [address, nameHash] : module.mCallableFunctions)
+				{
+					serializer.write(address);
+					serializer.write(nameHash);
+				}
+			}
+		}
 
 		// Serialize global variables
 		if (serializer.isReading())

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -86,21 +86,9 @@ bool PauseMenu::canBeRemoved()
 	return (mState == State::INACTIVE && mVisibility <= 0.0f);
 }
 
-void PauseMenu::initialize()
-{
-}
-
-void PauseMenu::deinitialize()
-{
-}
-
-void PauseMenu::keyboard(const rmx::KeyboardEvent& ev)
-{
-}
-
 void PauseMenu::update(float timeElapsed)
 {
-	if (!isEnabled())
+	if (!mIsEnabled)
 		return;
 
 	if (mRestoreGameResolution != Vec2i())
@@ -310,13 +298,13 @@ void PauseMenu::render()
 
 			if (mDialogEntries.size() <= 2)
 			{
-				static const uint64 spriteKey = rmx::getMurmur2_64(std::string_view("pause_screen_dialog"));
+				constexpr uint64 spriteKey = rmx::constMurmur2_64("pause_screen_dialog");
 				drawer.drawSprite(Vec2i(px - 66, py - 8), spriteKey, Color(1.0f, 1.0f, 1.0f, mDialogVisibility));
 			}
 			else
 			{
 				py -= 15;
-				static const uint64 spriteKey = rmx::getMurmur2_64(std::string_view("pause_screen_dialog3"));
+				constexpr uint64 spriteKey = rmx::constMurmur2_64("pause_screen_dialog3");
 				drawer.drawSprite(Vec2i(px - 68, py - 8), spriteKey, Color(1.0f, 1.0f, 1.0f, mDialogVisibility));
 				px += 5;
 			}
@@ -341,8 +329,8 @@ void PauseMenu::render()
 			const int rightAnchor = screenWidth + roundToInt((1.0f - mVisibility) * 160.0f);
 			int py = screenHeight - (int)mMenuEntries.size() * LINE_HEIGHT;
 
-			static const uint64 upperBGKey = rmx::getMurmur2_64(std::string_view("pause_screen_upper"));
-			static const uint64 lowerBGKey = rmx::getMurmur2_64(std::string_view("pause_screen_lower"));
+			constexpr uint64 upperBGKey = rmx::constMurmur2_64("pause_screen_upper");
+			constexpr uint64 lowerBGKey = rmx::constMurmur2_64("pause_screen_lower");
 			drawer.drawSprite(Vec2i(rightAnchor - 210, 0), upperBGKey);
 			drawer.drawSprite(Vec2i(rightAnchor - 190, py - 8), lowerBGKey);
 
@@ -371,7 +359,7 @@ void PauseMenu::render()
 			const float visibility = saturate((mTimeShown - 5.0f) * 3.0f) * mVisibility;
 			const int py = screenHeight - 5 + roundToInt(interpolate(20, -2, visibility));
 
-			static const uint64 key = rmx::getMurmur2_64(std::string_view("@input_icon_button_Y"));
+			constexpr uint64 key = rmx::constMurmur2_64("@input_icon_button_Y");
 			drawer.drawRect(Recti(0, py - 9, 175, 20), Color(0.0f, 0.0f, 0.0f, 0.8f));
 			drawer.drawSprite(Vec2i(12, py - 1), key);
 			drawer.printText(global::mOxyfontTiny, Vec2i(24, py), "Hide menu for clean screenshots", 4, Color(0.6f, 0.8f, 1.0f, 1.0f));

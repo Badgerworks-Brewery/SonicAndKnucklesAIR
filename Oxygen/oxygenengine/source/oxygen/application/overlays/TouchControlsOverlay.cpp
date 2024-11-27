@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -12,7 +12,7 @@
 #include "oxygen/application/EngineMain.h"
 #include "oxygen/helper/FileHelper.h"
 #include "oxygen/rendering/utils/RenderUtils.h"
-#include "oxygen/resources/SpriteCache.h"
+#include "oxygen/resources/SpriteCollection.h"
 
 
 namespace
@@ -70,8 +70,8 @@ void TouchControlsOverlay::buildTouchControls()
 	mSetup.mFaceButtonsSize = (float)config.mVirtualGamepad.mFaceButtonsSize * CONFIG_TO_SETUP_SCALE;
 	mSetup.mStartButtonCenter = Vec2f(0.95f, -0.92f) + Vec2f(config.mVirtualGamepad.mStartButtonCenter) * CONFIG_TO_SETUP_SCALE * 0.5f;
 	mSetup.mGameRecButtonCenter = Vec2f(-0.95f, -0.92f) + Vec2f(config.mVirtualGamepad.mGameRecButtonCenter) * CONFIG_TO_SETUP_SCALE * 0.5f;
-	mSetup.mShoulderLButtonCenter = Vec2f(-1.55f, -0.82f) + Vec2f(config.mVirtualGamepad.mShoulderLButtonCenter) * CONFIG_TO_SETUP_SCALE * 0.5f;
-	mSetup.mShoulderRButtonCenter = Vec2f(+1.55f, -0.82f) + Vec2f(config.mVirtualGamepad.mShoulderRButtonCenter) * CONFIG_TO_SETUP_SCALE * 0.5f;
+	mSetup.mShoulderLButtonCenter = Vec2f(-1.55f, -0.87f) + Vec2f(config.mVirtualGamepad.mShoulderLButtonCenter) * CONFIG_TO_SETUP_SCALE * 0.5f;
+	mSetup.mShoulderRButtonCenter = Vec2f(+1.55f, -0.87f) + Vec2f(config.mVirtualGamepad.mShoulderRButtonCenter) * CONFIG_TO_SETUP_SCALE * 0.5f;
 
 	// Create touch areas and visual elements
 	{
@@ -97,12 +97,12 @@ void TouchControlsOverlay::buildTouchControls()
 
 		if (InputManager::instance().isUsingControlsLR())
 		{
-			buildRoundButton(mSetup.mShoulderLButtonCenter, 0.15f * size, "touch_overlay_L", controller.L, ConfigMode::State::MOVING_L);
-			buildRoundButton(mSetup.mShoulderRButtonCenter, 0.15f * size, "touch_overlay_R", controller.R, ConfigMode::State::MOVING_R);
+			buildRectangularButton(mSetup.mShoulderLButtonCenter, Vec2f(0.175f, 0.1f), "touch_overlay_L", &controller.L, ConfigMode::State::MOVING_L);
+			buildRectangularButton(mSetup.mShoulderRButtonCenter, Vec2f(0.175f, 0.1f), "touch_overlay_R", &controller.R, ConfigMode::State::MOVING_R);
 		}
 	}
 	buildRectangularButton(mSetup.mStartButtonCenter, Vec2f(0.18f, 0.06f), "touch_overlay_start", &controller.Start, ConfigMode::State::MOVING_START);
-	buildRectangularButton(mSetup.mGameRecButtonCenter, Vec2f(0.15f, 0.06f), "touch_overlay_rec", nullptr, ConfigMode::State::MOVING_GAMEREC, TouchArea::SpecialType::GAMEREC);
+	buildRectangularButton(mSetup.mGameRecButtonCenter, Vec2f(0.15f, 0.06f), "touch_overlay_rec", nullptr, ConfigMode::State::MOVING_GAMEREC, TouchArea::SpecialType::GAMEREC, 0.1f);
 
 	mLastScreenSize = FTX::screenSize();
 }
@@ -203,7 +203,6 @@ void TouchControlsOverlay::render()
 		drawer.drawRect(FTX::screenRect(), Color(0.0f, 0.0f, 0.0f, 0.8f));
 
 		Color color = (mConfigMode.mState == ConfigMode::State::DONE_BUTTON_DOWN) ? Color::YELLOW : Color::WHITE;
-		color.a = mAlpha;
 		drawer.drawRect(getScreenFromNormalizedTouchRect(DONE_BUTTON_RECT), mDoneText, color);
 	}
 
@@ -219,20 +218,18 @@ void TouchControlsOverlay::render()
 
 			const bool pressed = (nullptr == visualElement.mControl) ? false : visualElement.mControl->isPressed();
 			const uint64 spriteKey = visualElement.mSpriteKeys[pressed ? 1 : 0];
-			const SpriteCache::CacheItem* item = SpriteCache::instance().getSprite(spriteKey);
+			const SpriteCollection::Item* item = SpriteCollection::instance().getSprite(spriteKey);
 			if (nullptr == item)
 				continue;
-
-			Rectf rect;
-			rect.setPos(visualElement.mCenter - visualElement.mHalfExtend);
-			rect.setSize(visualElement.mHalfExtend * 2.0f);
 
 			Color color = (mConfigMode.mEnabled && visualElement.mReactToState == mConfigMode.mState) ? Color::CYAN : Color::WHITE;
 			color.a = alpha;
 
+			Rectf rect(visualElement.mCenter - visualElement.mHalfExtend, visualElement.mHalfExtend * 2.0f);
 			rect = getScreenFromNormalizedTouchRect(rect);
 			const Vec2f scale = rect.getSize() / Vec2f(item->mSprite->getSize());
-			drawer.drawSprite(rect.getPos() + rect.getSize() / 2, spriteKey, color, scale);
+
+			drawer.drawSprite(Vec2i(rect.getCenter()), spriteKey, color, scale);
 		}
 		drawer.setSamplingMode(SamplingMode::POINT);
 	}
@@ -249,7 +246,7 @@ void TouchControlsOverlay::buildPointButton(const Vec2f& center, float radius, f
 		touchArea.mControls.push_back(control2);
 }
 
-void TouchControlsOverlay::buildRectangularButton(const Vec2f& center, const Vec2f& halfExtend, const char* spriteKey, InputManager::Control* control, ConfigMode::State reactToState, TouchArea::SpecialType specialType)
+void TouchControlsOverlay::buildRectangularButton(const Vec2f& center, const Vec2f& halfExtend, const char* spriteKey, InputManager::Control* control, ConfigMode::State reactToState, TouchArea::SpecialType specialType, float radius)
 {
 	VisualElement& visualElement = vectorAdd(mVisualElements);
 	visualElement.mCenter.set(center);
@@ -262,7 +259,7 @@ void TouchControlsOverlay::buildRectangularButton(const Vec2f& center, const Vec
 	TouchArea& touchArea = vectorAdd(mTouchAreas);
 	touchArea.mSpecialType = specialType;
 	touchArea.mRect.set(center - halfExtend, halfExtend * 2.0f);
-	touchArea.mRadius = 0.35f;
+	touchArea.mRadius = radius;
 	touchArea.mPriority = 1.0f;
 	if (nullptr != control)
 		touchArea.mControls.push_back(control);

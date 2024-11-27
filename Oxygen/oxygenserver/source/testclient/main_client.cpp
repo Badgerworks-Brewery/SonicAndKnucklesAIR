@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -83,9 +83,9 @@ private:
 void TestClient::runClient()
 {
 	// Switch between UDP and TCP usage
-#if 0
+#if 1
 	UDPSocket udpSocket;
-	if (!udpSocket.bindToAnyPort())
+	if (!udpSocket.bindToAnyPort(USE_IPV6))
 		RMX_ERROR("Socket bind to any port failed", return);
 	ConnectionManager connectionManager(&udpSocket, nullptr, *this, network::HIGHLEVEL_PROTOCOL_VERSION_RANGE);
 #else

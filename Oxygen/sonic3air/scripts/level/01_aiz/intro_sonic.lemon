@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -139,11 +139,11 @@ function void fn067572()
 //# address-hook(0x067594) end(0x0675be)
 function void fn067594()
 {
-	#if STANDALONE
-		objA0.velocity.x -= 0x50
-	#else
-		objA0.velocity.x -= 0x40
-	#endif
+#if STANDALONE
+	objA0.velocity.x -= 0x50
+#else
+	objA0.velocity.x -= 0x40
+#endif
 
 	UpdateMovementSimple()
 	if (objA0.position.y.u16 < 0x0130)
@@ -309,7 +309,7 @@ function void fn067704()
 	level.palettefx.state = 0xff
 
 	A1 = 0xffffb000
-	u8[A1 + 0x05] = 0x04
+	u8[A1 + 0x05] = base_state.HURT
 	objA1.velocity.y = -0x400
 	objA1.velocity.x = -0x200
 	objA1.groundspeed = 0
@@ -410,7 +410,7 @@ function void fn06784a()
 {
 	Object.animationProgress(0x067a8f)
 	MoveWithParent()
-	fn084920()
+	Child.DrawSprite()
 }
 
 
@@ -432,7 +432,7 @@ function void fn067888()
 {
 	Object.animationProgress(0x067a97)
 	MoveWithParent()
-	fn084920()
+	Child.DrawSprite()
 }
 
 
@@ -752,7 +752,7 @@ function void fn061f10()
 
 	level.palettefx.state = 0
 	player1.control_override = 0
-	fn083c06()
+	AfterBoss_Cleanup()
 	fn0851e4()
 
 	if (allocDynamicObjectStd())

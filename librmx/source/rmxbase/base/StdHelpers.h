@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2023 by Eukaryot
+*	Copyright (C) 2008-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -65,6 +65,35 @@ int vectorIndexOf(const std::vector<T>& vec, T element)
 			return (int)index;
 	}
 	return -1;
+}
+
+// Find an element matching the predicate in an std::vector
+template<typename T, class PRED>
+T* vectorFindByPredicate(std::vector<T>& vec, PRED predicate)
+{
+	const auto it = std::find_if(vec.begin(), vec.end(), predicate);
+	return (it == vec.end()) ? nullptr : &*it;
+}
+
+template<typename T, class PRED>
+const T* vectorFindByPredicate(const std::vector<T>& vec, PRED predicate)
+{
+	const auto it = std::find_if(vec.begin(), vec.end(), predicate);
+	return (it == vec.end()) ? nullptr : &*it;
+}
+
+// Remove all instances of an element from an std::vector
+template<typename T, typename S>
+void vectorRemoveAll(std::vector<T>& container, S value)
+{
+	container.erase(std::remove(container.begin(), container.end(), value), container.end());
+}
+
+// Remove all elements matching the predicate from an std::vector
+template<typename T, class PRED>
+void vectorRemoveByPredicate(std::vector<T>& container, PRED predicate)
+{
+	container.erase(std::remove_if(container.begin(), container.end(), predicate), container.end());
 }
 
 

@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -185,7 +185,7 @@ function void DamageCharacter()
 {
 	if ((u8[A1 + 0x2b] & char.bonus.INVINCIBLE) == 0)
 	{
-		if (u8[A1 + 0x34] == 0 && u8[A1 + 0x05] < 4)
+		if (u8[A1 + 0x34] == 0 && u8[A1 + 0x05] < base_state.HURT)
 		{
 			D0 = s32(objA1.velocity.y) << 8
 			D3 = objA1.position.y - D0

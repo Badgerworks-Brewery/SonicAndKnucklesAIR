@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2023 by Eukaryot
+*	Copyright (C) 2008-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -61,6 +61,7 @@ namespace rmx
 		bool mResizeable = true;		// Window mode only: Resizable window
 		bool mBorderless = false;		// Window mode only: Hide window frame / borderless window
 		bool mVSync = true;				// Use vertical sync
+		int mDisplayIndex = 0;			// Display index
 		bool mHideCursor = false;		// Show or hide mouse cursor
 		int mMultisampling = 0;			// Multisampling setting, usually 0 to disable
 		bool mAutoClearScreen = true;	// Automatically clear screen before rendering

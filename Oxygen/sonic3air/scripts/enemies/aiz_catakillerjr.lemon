@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -56,7 +56,7 @@ function void fn0876ec()
 	objA0.velocity.x = -0x100
 
 	// "spawnIdenticalChildObjects(0x087898)" replaced by:
-	spawnChildObjects(0x08778c, 0, 0, 6)
+	spawnChildObjects(0x08778c, 0, 0, 6)		// Catakiller's body parts
 
 	fn087702()
 }
@@ -185,7 +185,7 @@ function void fn08780a()
 	objA0.update_address = 0x08782c
 	objA0.countdown_callback = addressof(Object.TriggerUnloading)
 	objA0.flags2b |= char.bonus.SHIELD_FIRE
-	fn084920()
+	Child.DrawSprite()
 }
 
 
@@ -194,5 +194,5 @@ function void fn08782c()
 {
 	MoveAndFlipWithParent()
 	Object.AnimationProgress.DistinctTimer(0x0878a8)
-	fn084920()
+	Child.DrawSprite()
 }

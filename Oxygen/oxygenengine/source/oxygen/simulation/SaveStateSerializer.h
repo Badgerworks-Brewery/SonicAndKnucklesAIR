@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -12,6 +12,7 @@
 
 class CodeExec;
 class RenderParts;
+class Simulation;
 
 
 class SaveStateSerializer
@@ -19,13 +20,13 @@ class SaveStateSerializer
 public:
 	enum class StateType : uint8
 	{
-		INVALID		= 0,
-		STANDALONE	= 1,
-		GENSX		= 2
+		INVALID	= 0,
+		OXYGEN	= 1,
+		GENSX	= 2
 	};
 
 public:
-	SaveStateSerializer(CodeExec& codeExec, RenderParts& renderParts);
+	SaveStateSerializer(Simulation& simulation, RenderParts& renderParts);
 
 	bool loadState(const std::vector<uint8>& input, StateType* outStateType = nullptr);
 	bool loadState(const std::wstring& filename, StateType* outStateType = nullptr);
@@ -38,6 +39,7 @@ private:
 	bool readGensxState(VectorBinarySerializer& serializer);
 
 private:
+	Simulation& mSimulation;
 	CodeExec& mCodeExec;
 	RenderParts& mRenderParts;
 };

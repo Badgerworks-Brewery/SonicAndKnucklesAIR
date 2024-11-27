@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -123,7 +123,7 @@ void DebugSidePanel::keyboard(const rmx::KeyboardEvent& ev)
 {
 	GuiBase::keyboard(ev);
 
-	if (ev.state)
+	if (ev.state && !FTX::System->wasEventConsumed())
 	{
 		DebugSidePanelCategory& category = *mCategories[mActiveCategoryIndex];
 		switch (ev.key)
@@ -147,7 +147,7 @@ void DebugSidePanel::keyboard(const rmx::KeyboardEvent& ev)
 
 void DebugSidePanel::mouse(const rmx::MouseEvent& ev)
 {
-	if (ev.state && ev.button == rmx::MouseButton::Left)
+	if (ev.state && ev.button == rmx::MouseButton::Left && !FTX::System->wasEventConsumed())
 	{
 		if (mMouseOverTab > 0)
 		{
@@ -173,7 +173,7 @@ void DebugSidePanel::mouse(const rmx::MouseEvent& ev)
 
 void DebugSidePanel::update(float timeElapsed)
 {
-	if (FTX::mouseWheel() != 0)
+	if (FTX::mouseWheel() != 0 && !FTX::System->wasEventConsumed())
 	{
 		DebugSidePanelCategory& category = *mCategories[mActiveCategoryIndex];
 		category.mScrollPosition -= FTX::mouseWheel() * 75;
@@ -220,7 +220,7 @@ void DebugSidePanel::render()
 				lastType = mCategories[i]->mType;
 			}
 
-			const bool mouseInRect = FTX::mouseIn(r);
+			const bool mouseInRect = (FTX::mouseIn(r) && !FTX::System->wasEventConsumed());
 			if (mouseInRect)
 			{
 				drawer.drawRect(r, Color(1.0f, 1.0f, 0.0f, 0.5f));
@@ -288,7 +288,7 @@ void DebugSidePanel::render()
 				selectionRect.height = 12;
 
 				// Check if mouse cursor is inside
-				if (line.mKey != INVALID_KEY && FTX::mouseIn(selectionRect))
+				if (line.mKey != INVALID_KEY && FTX::mouseIn(selectionRect) && !FTX::System->wasEventConsumed())
 				{
 					mMouseOverKey = line.mKey;
 				}
@@ -300,7 +300,7 @@ void DebugSidePanel::render()
 	// Draw mouse-over highlight for width change
 	{
 		const Recti sensorRect(mainRect.x - 6, mainRect.y, 12, mainRect.height);
-		const bool hovered = FTX::mouseIn(sensorRect);
+		const bool hovered = FTX::mouseIn(sensorRect) && !FTX::System->wasEventConsumed();
 		if (hovered || mChangingSidePanelWidth)
 		{
 			drawer.drawRect(sensorRect, mChangingSidePanelWidth ? Color(0.1f, 0.1f, 0.1f) : Color(0.0f, 0.0f, 0.0));
@@ -578,7 +578,7 @@ void DebugSidePanel::buildInternalCategoryContent(DebugSidePanelCategory& catego
 						{
 							postfix += " <" + std::to_string(callFrame.mSteps) + ">";
 							const float log = log10f((float)clamp((int)callFrame.mSteps, 100, 1000000));
-							color.setHSL(Vec3f(0.75f - log / 6.0f, 1.0f, 0.5f));
+							color.setFromHSL(Vec3f((0.75f - log / 6.0f) * 360.0f, 1.0f, 0.5f));
 						}
 						else
 						{
@@ -643,10 +643,9 @@ void DebugSidePanel::buildInternalCategoryContent(DebugSidePanelCategory& catego
 					#if 0
 						if (key == category.mChangedKey)
 						{
-							std::string scriptFilename;
-							uint32 lineNumber;
-							codeExec.getLemonScriptProgram().resolveLocation(*hit.mLocation.mFunction, (uint32)hit.mLocation.mProgramCounter, scriptFilename, lineNumber);
-							textLine->mCodeLocation = "\"" + scriptFilename + "\":" + std::to_string(lineNumber);
+							LemonScriptProgram::ResolvedLocation location;
+							codeExec.getLemonScriptProgram().resolveLocation(location, *hit.mLocation.mFunction, (uint32)*hit.mLocation.mProgramCounter);
+							textLine->mCodeLocation = "\"" + location.mScriptFilename + "\":" + std::to_string(location.mLineNumber);
 
 							// TODO: The script file name needs to contains the full file path for this to work, not just the file name itself
 							//  -> Maybe store a list of source files in the module?
@@ -968,7 +967,7 @@ void DebugSidePanel::buildInternalCategoryContent(DebugSidePanelCategory& catego
 					for (size_t i = 0; i < entry.mEntries.size(); ++i)
 					{
 						const DebugTracking::ScriptLogSingleEntry& singleEntry = entry.mEntries[i];
-						const uint64 key = (((uint64)entry.mEntries.size() << 16) + ((uint64)i << 32)) ^ rmx::getMurmur2_64(String(singleEntry.mValue));
+						const uint64 key = (((uint64)entry.mEntries.size() << 16) + ((uint64)i << 32)) ^ rmx::getMurmur2_64(singleEntry.mValue);
 						builder.addLine(singleEntry.mValue, color, 56, key);
 
 						if (category.mOpenKeys.count(key) != 0)

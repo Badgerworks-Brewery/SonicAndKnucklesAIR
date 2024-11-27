@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -304,7 +304,7 @@ void Game::checkForUnlockedSecrets()
 	uint32 achievementsCompleted = 0;
 	for (const SharedDatabase::Achievement& achievement : SharedDatabase::getAchievements())
 	{
-		if (mPlayerProgress.getAchievementState(achievement.mType) > 0)
+		if (mPlayerProgress.mAchievements.getAchievementState(achievement.mType) > 0)
 		{
 			++achievementsCompleted;
 		}
@@ -312,10 +312,10 @@ void Game::checkForUnlockedSecrets()
 
 	for (const SharedDatabase::Secret& secret : SharedDatabase::getSecrets())
 	{
-		if (secret.mUnlockedByAchievements && !mPlayerProgress.isSecretUnlocked(secret.mType) && achievementsCompleted >= secret.mRequiredAchievements)
+		if (secret.mUnlockedByAchievements && !mPlayerProgress.mUnlocks.isSecretUnlocked(secret.mType) && achievementsCompleted >= secret.mRequiredAchievements)
 		{
 			// Unlock secret now
-			mPlayerProgress.setSecretUnlocked(secret.mType);
+			mPlayerProgress.mUnlocks.setSecretUnlocked(secret.mType);
 			GameApp::instance().showUnlockedWindow(SecretUnlockedWindow::EntryType::SECRET, "Secret unlocked!", secret.mName);
 		}
 	}
@@ -337,6 +337,16 @@ void Game::startIntoDataSelect()
 
 	Simulation& simulation = Application::instance().getSimulation();
 	simulation.resetIntoGame("EntryFunctions.dataSelect");
+
+	startIntoGameInternal();
+}
+
+void Game::startIntoActSelect()
+{
+	mMode = Mode::ACT_SELECT;
+
+	Simulation& simulation = Application::instance().getSimulation();
+	simulation.resetIntoGame("EntryFunctions.actSelectMenu");
 
 	startIntoGameInternal();
 }
@@ -619,6 +629,7 @@ void Game::updateSpecialInput(float timeElapsed)
 void Game::onActiveModsChanged()
 {
 	checkActiveModsUsedFeatures();
+	mDynamicSprites.updateSpriteRedirects();
 }
 
 bool Game::shouldPauseOnFocusLoss() const
@@ -675,7 +686,7 @@ void Game::fillDebugVisualization(Bitmap& bitmap, int& mode)
 					if (tile & 0x0800)	// Flip vertically
 						angle = 0x80 - angle;
 
-					baseColor.setHSL(Vec3f((float)angle / 256.0f, 1.0f, 0.5f));
+					baseColor.setFromHSL(Vec3f((float)angle / 256.0f * 360.0f, 1.0f, 0.5f));
 					baseColor.a = 0.7f;
 				}
 
@@ -830,8 +841,7 @@ void Game::onGameRecordingHeaderSave(std::vector<uint8>& buffer)
 void Game::checkActiveModsUsedFeatures()
 {
 	// Check mods for usage of Crowd Control
-	static const uint64 CC_FEATURE_NAME_HASH = rmx::getMurmur2_64("CrowdControl");
-	const bool usesCrowdControl = ModManager::instance().anyActiveModUsesFeature(CC_FEATURE_NAME_HASH);
+	const bool usesCrowdControl = ModManager::instance().anyActiveModUsesFeature(rmx::constMurmur2_64("CrowdControl"));
 	if (usesCrowdControl)
 		mCrowdControlClient.startConnection();
 	else
@@ -895,7 +905,7 @@ void Game::setAchievementValue(uint32 achievementId, int32 value)
 
 bool Game::isAchievementComplete(uint32 achievementId)
 {
-	return (mPlayerProgress.getAchievementState(achievementId) != 0);
+	return (mPlayerProgress.mAchievements.getAchievementState(achievementId) != 0);
 }
 
 void Game::setAchievementComplete(uint32 achievementId)
@@ -905,9 +915,9 @@ void Game::setAchievementComplete(uint32 achievementId)
 	if (hasDebugModeActive && !EngineMain::getDelegate().useDeveloperFeatures())
 		return;
 
-	if (mPlayerProgress.getAchievementState(achievementId) == 0)
+	if (mPlayerProgress.mAchievements.getAchievementState(achievementId) == 0)
 	{
-		mPlayerProgress.mAchievementStates[achievementId] = 1;
+		mPlayerProgress.mAchievements.mAchievementStates[achievementId] = 1;
 		SharedDatabase::Achievement* achievement = SharedDatabase::getAchievement(achievementId);
 		if (nullptr != achievement)
 		{
@@ -925,7 +935,7 @@ void Game::setAchievementComplete(uint32 achievementId)
 
 bool Game::isSecretUnlocked(uint32 secretId)
 {
-	return mPlayerProgress.isSecretUnlocked(secretId);
+	return mPlayerProgress.mUnlocks.isSecretUnlocked(secretId);
 }
 
 void Game::setSecretUnlocked(uint32 secretId)
@@ -933,9 +943,9 @@ void Game::setSecretUnlocked(uint32 secretId)
 	SharedDatabase::Secret* secret = SharedDatabase::getSecret(secretId);
 	RMX_CHECK(nullptr != secret, "Secret with ID " << secretId << " not found", return);
 
-	if (!mPlayerProgress.isSecretUnlocked(secretId))
+	if (!mPlayerProgress.mUnlocks.isSecretUnlocked(secretId))
 	{
-		mPlayerProgress.setSecretUnlocked(secretId);
+		mPlayerProgress.mUnlocks.setSecretUnlocked(secretId);
 		const char* text = (secret->mType == SharedDatabase::Secret::SECRET_DOOMSDAY_ZONE) ? "Unlocked in Act Select" : "Found hidden secret!";
 		GameApp::instance().showUnlockedWindow(SecretUnlockedWindow::EntryType::SECRET, text, secret->mName);
 		mPlayerProgress.save();
@@ -969,8 +979,8 @@ void Game::onZoneActCompleted(uint16 zoneAndAct)
 	const uint32 bitValue = (1 << bitNumber);
 	const uint8 character = clamp(mLastCharacters, 1, 3) - 1;
 
-	mPlayerProgress.mFinishedZoneAct |= bitValue;
-	mPlayerProgress.mFinishedZoneActByCharacter[character] |= bitValue;
+	mPlayerProgress.mUnlocks.mFinishedZoneAct |= bitValue;
+	mPlayerProgress.mUnlocks.mFinishedZoneActByCharacter[character] |= bitValue;
 	mPlayerProgress.save();
 }
 

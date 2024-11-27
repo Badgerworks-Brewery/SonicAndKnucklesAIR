@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -151,7 +151,7 @@ function void fn0455cc_sub()
 		D0.u16 = u16[A2 + 0x10] - objA0.position.x.u16 + 0x0c
 		if (D0.u16 < 0x18)
 		{
-			if (u8[A2 + 0x2e] == 0 && u8[A2 + 0x05] < 0x04 && debug_mode.state == 0)
+			if (u8[A2 + 0x2e] == 0 && u8[A2 + 0x05] < base_state.HURT && debug_mode.state == 0)
 			{
 				// Spawn teleporter beam
 				if (allocDynamicObjectAfterA0())
@@ -187,16 +187,16 @@ function void fn0456f4()
 	fn045856()
 
 	A1 = 0xffffb000
-	#if STANDALONE
-		// Check if character got hurt right while entering the beam
-		if (u8[A1 + 0x05] == 0x04)
-		{
-			u8[A1 + 0x05] = 0x02
-			objA1.velocity.x = 0
-			objA1.velocity.y = 0
-			objA1.groundspeed = 0
-		}
-	#endif
+#if STANDALONE
+	// Check if character got hurt right while entering the beam
+	if (u8[A1 + 0x05] == base_state.HURT)
+	{
+		u8[A1 + 0x05] = base_state.NORMAL
+		objA1.velocity.x = 0
+		objA1.velocity.y = 0
+		objA1.groundspeed = 0
+	}
+#endif
 
 	A2 = 0xffff0000 + u16[A0 + 0x3c]
 	if (s8[A2 + 0x46] >= 0x08)
@@ -416,8 +416,8 @@ function void fn045bf4()
 	}
 
 	A1 = 0xffffb000
-	A2 = addressof(control.player1)
-	A3 = addressof(player1.control_override)
+	A2 = addressof(control.player1)				// Address: 0xfffff602
+	A3 = addressof(player1.control_override)	// Address: 0xfffff7ca
 	A4 = A0 + 0x30
 	A5 = A0 + 0x31
 	D6 = 0
@@ -426,8 +426,8 @@ function void fn045bf4()
 	if (getNumPlayers() >= 2)
 	{
 		A1 = 0xffffb04a
-		A2 = addressof(control.tails)
-		A3 = addressof(player2.control_override)
+		A2 = addressof(control.tails)				// Address: 0xfffff66a
+		A3 = addressof(player2.control_override)	// Address: 0xfffff7cb
 		A4 = A0 + 0x31
 		A5 = A0 + 0x30
 		D6 = 1

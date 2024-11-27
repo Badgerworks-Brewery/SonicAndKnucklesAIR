@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -15,7 +15,8 @@ template<size_t NUM_BITS>
 class BitArray
 {
 public:
-	static const constexpr size_t NUM_CHUNKS = (NUM_BITS + 63) / 64;
+	static const constexpr size_t BITS_PER_CHUNK = 64;
+	static const constexpr size_t NUM_CHUNKS = (NUM_BITS + BITS_PER_CHUNK - 1) / BITS_PER_CHUNK;
 
 public:
 	void clearAllBits()

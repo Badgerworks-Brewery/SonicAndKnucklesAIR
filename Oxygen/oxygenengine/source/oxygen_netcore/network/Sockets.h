@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -129,10 +129,10 @@ public:
 	const SocketAddress& getRemoteAddress();
 	void swapWith(TCPSocket& other);
 
-	bool setupServer(uint16 serverPort);
+	bool setupServer(uint16 serverPort, bool useIPv6 = false);
 	bool acceptConnection(TCPSocket& outSocket);
 
-	bool connectTo(const std::string& serverAddress, uint16 serverPort);
+	bool connectTo(const std::string& serverAddress, uint16 serverPort, bool useIPv6 = false);
 
 	bool sendData(const uint8* data, size_t length);
 	bool sendData(const std::vector<uint8>& data);
@@ -166,8 +166,8 @@ public:
 	bool isValid() const;
 	void close();
 
-	bool bindToPort(uint16 port);
-	bool bindToAnyPort();
+	bool bindToPort(uint16 port, bool useIPv6 = false);
+	bool bindToAnyPort(bool useIPv6 = false);
 
 	bool sendData(const uint8* data, size_t length, const SocketAddress& destinationAddress);
 	bool sendData(const std::vector<uint8>& data, const SocketAddress& destinationAddress);

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -100,15 +100,15 @@ void ActSelectMenu::setBaseState(BaseState baseState)
 void ActSelectMenu::onFadeIn()
 {
 	// Update DDZ
-	mZoneEntry->getOptionByValue(0x0c00)->mVisible = PlayerProgress::instance().isSecretUnlocked(SharedDatabase::Secret::SECRET_DOOMSDAY_ZONE);
-	mActEntry->getOptionByValue(0x0c00)->mVisible = PlayerProgress::instance().isSecretUnlocked(SharedDatabase::Secret::SECRET_DOOMSDAY_ZONE);
+	mZoneEntry->getOptionByValue(0x0c00)->mVisible = PlayerProgress::instance().mUnlocks.isSecretUnlocked(SharedDatabase::Secret::SECRET_DOOMSDAY_ZONE);
+	mActEntry->getOptionByValue(0x0c00)->mVisible = PlayerProgress::instance().mUnlocks.isSecretUnlocked(SharedDatabase::Secret::SECRET_DOOMSDAY_ZONE);
 
 	mState = State::APPEAR;
 
 	mMenuBackground->showPreview(true);
 	mMenuBackground->startTransition(MenuBackground::Target::LIGHT);
 
-	if (PlayerProgress::instance().isSecretUnlocked(SharedDatabase::Secret::SECRET_KNUX_AND_TAILS))
+	if (PlayerProgress::instance().mUnlocks.isSecretUnlocked(SharedDatabase::Secret::SECRET_KNUX_AND_TAILS))
 	{
 		if (mCharacterEntry->mOptions.size() < 5)
 		{
@@ -270,15 +270,15 @@ void ActSelectMenu::render()
 
 	// Show character selection
 	{
-		drawer.drawRect(Recti(anchorX - 162, 115, 80, 88), global::mCharSelectionBox, Color(1.0f, 1.0f, 1.0f, alpha));
+		drawer.drawSprite(Vec2i(anchorX - 122, 159), rmx::constMurmur2_64("charselectionbox"), Color(1.0f, 1.0f, 1.0f, alpha));
 
 		static const uint64 charSpriteKey[5] =
 		{
-			rmx::getMurmur2_64("menu_characters_sonic_tails"),		// Sonic & Tails
-			rmx::getMurmur2_64("menu_characters_sonic"),			// Sonic
-			rmx::getMurmur2_64("menu_characters_tails"),			// Tails
-			rmx::getMurmur2_64("menu_characters_knuckles"),			// Knuckles
-			rmx::getMurmur2_64("menu_characters_knuckles_tails")	// Knuckles & Tails
+			rmx::constMurmur2_64("menu_characters_sonic_tails"),	// Sonic & Tails
+			rmx::constMurmur2_64("menu_characters_sonic"),			// Sonic
+			rmx::constMurmur2_64("menu_characters_tails"),			// Tails
+			rmx::constMurmur2_64("menu_characters_knuckles"),		// Knuckles
+			rmx::constMurmur2_64("menu_characters_knuckles_tails")	// Knuckles & Tails
 		};
 		const uint32 charSelection = clamp(mCharacterEntry->selected().mValue, 0, 4);
 		drawer.drawSprite(Vec2i(anchorX - 125, 156), charSpriteKey[charSelection], Color(1.0f, 1.0f, 1.0f, alpha));

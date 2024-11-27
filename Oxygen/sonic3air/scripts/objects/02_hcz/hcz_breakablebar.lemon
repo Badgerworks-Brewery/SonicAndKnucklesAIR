@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -139,7 +139,7 @@ function void fn01edec()
 			D0.u16 = objA0.position.x.u16 + 0x14
 			if (D0.u16 < objA1.position.x.u16 && D0.u16 + 0x10 >= objA1.position.x.u16)
 			{
-				if (u8[A1 + 0x05] < 0x04 && u8[A1 + 0x2e] == 0)
+				if (u8[A1 + 0x05] < base_state.HURT && u8[A1 + 0x2e] == 0)
 				{
 					D0.u16 = objA0.position.y.u16 - u16[A0 + 0x36]
 					if (D0.u16 >= objA1.position.y.u16)
@@ -317,7 +317,7 @@ function void fn01efa0()
 				D0.u16 += 0x10
 				if (D0.u16 >= objA1.position.y.u16)
 				{
-					if (u8[A1 + 0x05] < 0x04 && u8[A1 + 0x2e] == 0)
+					if (u8[A1 + 0x05] < base_state.HURT && u8[A1 + 0x2e] == 0)
 					{
 						D0.u16 = objA0.position.x.u16
 						D0.u16 -= u16[A0 + 0x36]

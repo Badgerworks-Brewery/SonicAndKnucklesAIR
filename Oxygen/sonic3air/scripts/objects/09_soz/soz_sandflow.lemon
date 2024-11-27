@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -74,12 +74,12 @@ function void fn03fd4e()
 	{
 		if (dx < 0x20 && dy < D3.u16)
 		{
-			if (u8[A1 + 0x2a] & char.flag.IN_AIR && (u8[A1 + 0x2a] & char.flag.ON_OBJECT) == 0 && u8[A1 + 0x05] < 0x04 && u8[A1 + 0x2e] == 0)
+			if (u8[A1 + 0x2a] & char.flag.IN_AIR && (u8[A1 + 0x2a] & char.flag.ON_OBJECT) == 0 && u8[A1 + 0x05] < base_state.HURT && u8[A1 + 0x2e] == 0)
 			{
 				objA0.flags2a |= bit
 
-				objA1.hitbox_extends.y = char.hitbox.y.ROLLING
 				objA1.hitbox_extends.x = char.hitbox.x.ROLLING
+				objA1.hitbox_extends.y = char.hitbox.y.ROLLING
 				objA1.state = char.state.ROLLING
 				objA1.flags2a |= (char.flag.ROLLING | char.flag.ON_OBJECT)
 				objA1.flags2a &= ~char.flag.CONTROL_LOCK
@@ -174,12 +174,12 @@ function void fn03fe70()
 	{
 		if (dx < D3.u16 && dy < 0x20)
 		{
-			if (u8[A1 + 0x2a] & char.flag.IN_AIR && (u8[A1 + 0x2a] & char.flag.ON_OBJECT) == 0 && u8[A1 + 0x05] < 0x04 && u8[A1 + 0x2e] == 0 && objA1.velocity.y >= 0)
+			if (u8[A1 + 0x2a] & char.flag.IN_AIR && (u8[A1 + 0x2a] & char.flag.ON_OBJECT) == 0 && u8[A1 + 0x05] < base_state.HURT && u8[A1 + 0x2e] == 0 && objA1.velocity.y >= 0)
 			{
 				u8[A1 + 0x2a] |= char.flag.ON_OBJECT
 				objA0.flags2a |= bit
-				objA1.hitbox_extends.y = char.hitbox.y.ROLLING
 				objA1.hitbox_extends.x = char.hitbox.x.ROLLING
+				objA1.hitbox_extends.y = char.hitbox.y.ROLLING
 				objA1.state = char.state.ROLLING
 				u8[A1 + 0x2a] |= char.flag.ROLLING
 				objA1.flags2a &= ~char.flag.CONTROL_LOCK
@@ -258,7 +258,7 @@ function void fn03ff9e()
 	{
 		if (dx < 0x40 && dy < D3.u16)
 		{
-			if ((u8[A1 + 0x2a] & char.flag.ON_OBJECT) == 0 && u8[A1 + 0x05] < 0x04 && u8[A1 + 0x2e] == 0)
+			if ((u8[A1 + 0x2a] & char.flag.ON_OBJECT) == 0 && u8[A1 + 0x05] < base_state.HURT && u8[A1 + 0x2e] == 0)
 			{
 				if ((objA0.flags2a & 0x02) == 0 && (u8[A1 + 0x2a] & char.flag.IN_AIR) == 0)
 					return
@@ -294,7 +294,7 @@ function void fn03ff9e()
 	{
 		if (dx < 0x40 && dy < D3.u16)
 		{
-			if (u8[A1 + 0x2e] == 0 && u8[A1 + 0x05] < 0x04 && u8[A1 + 0x2a] & char.flag.IN_AIR)
+			if (u8[A1 + 0x2e] == 0 && u8[A1 + 0x05] < base_state.HURT && u8[A1 + 0x2a] & char.flag.IN_AIR)
 			{
 				u8[A1 + 0x30] = 0x7f
 				if (objA1.velocity.y < 0)

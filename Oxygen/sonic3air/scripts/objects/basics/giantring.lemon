@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -102,7 +102,7 @@ function void fn0616e6()
 		if (D0.u16 != 0)
 		{
 			A1 = 0xffffb000
-			if (u8[A1 + 0x05] >= 6)
+			if (u8[A1 + 0x05] >= base_state.DIED)
 				return
 
 			playSound(0xb3)
