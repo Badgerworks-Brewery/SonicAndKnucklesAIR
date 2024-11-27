@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -34,7 +34,7 @@ function void fn072b46()
 	if (objA0.countdown_value < 0)
 	{
 		A1 = 0xffffb000
-		if ((u8[A1 + 0x2a] & 0x80) == 0 && (u8[A1 + 0x2a] & char.flag.IN_AIR) == 0 && u8[A1 + 0x05] < 0x06)
+		if ((u8[A1 + 0x2a] & 0x80) == 0 && (u8[A1 + 0x2a] & char.flag.IN_AIR) == 0 && u8[A1 + 0x05] < base_state.DIED)
 		{
 			objA0.update_address = 0x072b96
 			StartCharacterWinPose()
@@ -200,7 +200,7 @@ function void fn072cda()
 function void fn072cfa()
 {
 	A1 = 0xffffb04a
-	if ((u8[A1 + 0x2a] & 0x80) == 0 && (u8[A1 + 0x2a] & char.flag.IN_AIR) == 0 && u8[A1 + 0x05] < 0x06)
+	if ((u8[A1 + 0x2a] & 0x80) == 0 && (u8[A1 + 0x2a] & char.flag.IN_AIR) == 0 && u8[A1 + 0x05] < base_state.DIED)
 	{
 		StartCharacterWinPose()
 		UnloadObject()

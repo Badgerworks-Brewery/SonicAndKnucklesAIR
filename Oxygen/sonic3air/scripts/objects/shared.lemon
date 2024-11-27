@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -1267,19 +1267,6 @@ function void StopCharacterWinPose()
 }
 
 
-//# address-hook(0x085c00) end(0x085c16)
-function void fn085c00()
-{
-	if (level.wait_for_results)
-		return
-
-	objA0.update_address = 0x085c1a
-
-	stopCharacterWinPose(0xffffb000)
-	stopCharacterWinPose(0xffffb04a)
-}
-
-
 
 //-------------------------------------------------------//
 // Animation                                             //
@@ -1480,7 +1467,7 @@ function void fn01dffe()
 
 function void fn01e006()
 {
-	if (u8[A1 + 0x05] >= 0x06 || debug_mode.state != 0)
+	if (u8[A1 + 0x05] >= base_state.DIED || debug_mode.state != 0)
 	{
 		D4 = 0
 		return
@@ -1705,7 +1692,7 @@ function void fn01e1f4()
 function void updateSonicPositionOnMovingObjectInternal(s8 sign)
 {
 	// First check is against collision interaction flag in "char.control_flags"
-	if ((u8[A1 + 0x2e] & control_flag.DISABLE_INTERACTION) == 0 && u8[A1 + 0x05] < 6 && debug_mode.state == 0)
+	if ((u8[A1 + 0x2e] & control_flag.DISABLE_INTERACTION) == 0 && u8[A1 + 0x05] < base_state.DIED && debug_mode.state == 0)
 	{
 		objA1.position.x.u16 += objA0.position.x.u16 - D2.u16
 		objA1.position.y.u16 = D0.u16 + u8[A1 + 0x1e] * sign
@@ -1971,7 +1958,7 @@ function void CheckCharacterClimbOnObjectInner()
 		D0.u16 = objA1.position.y.u16 - D0.u16 - s8[A1 + 0x1e] - 4
 		if (D0.s16 < -0x10 || D0.s16 >= 0)
 			return
-		if (s8[A1 + 0x2e] < 0 || u8[A1 + 0x05] >= 6)
+		if (s8[A1 + 0x2e] < 0 || u8[A1 + 0x05] >= base_state.DIED)
 			return
 
 		objA1.position.y.u16 = objA1.position.y.u16 - D0.u16 - 4
@@ -1990,7 +1977,7 @@ function void fn01e45a()
 	D0.u16 = D0.u16 - objA1.position.y.u16 - s8[A1 + 0x1e] - 4		// s8[A1 + 0x1e] = Sonic's hitbox_extends.y
 	if (D0.s16 < -0x10 || D0.s16 >= 0)
 		return
-	if (s8[A1 + 0x2e] < 0 || u8[A1 + 0x05] >= 6)
+	if (s8[A1 + 0x2e] < 0 || u8[A1 + 0x05] >= base_state.DIED)
 		return
 
 	objA1.position.y.u16 = objA1.position.y.u16 + D0.u16 + 3

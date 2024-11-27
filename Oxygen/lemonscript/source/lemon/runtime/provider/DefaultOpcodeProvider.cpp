@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -129,9 +129,8 @@ namespace lemon
 		static void exec_GET_VARIABLE_VALUE_USER(const RuntimeOpcodeContext context)
 		{
 			const uint32 variableId = context.getParameter<uint32>();
-			const GlobalVariable& variable = static_cast<GlobalVariable&>(context.mControlFlow->getProgram().getGlobalVariableByID(variableId));
-			*context.mControlFlow->mValueStackPtr = variable.getValue();
-			++context.mControlFlow->mValueStackPtr;
+			const UserDefinedVariable& variable = static_cast<UserDefinedVariable&>(context.mControlFlow->getProgram().getGlobalVariableByID(variableId));
+			variable.mGetter(*context.mControlFlow);	// This is supposed to write a value to the value stack
 		}
 
 		template<typename T>
@@ -150,10 +149,9 @@ namespace lemon
 
 		static void exec_SET_VARIABLE_VALUE_USER(const RuntimeOpcodeContext context)
 		{
-			const int64 value = *(context.mControlFlow->mValueStackPtr-1);
 			const uint32 variableId = context.getParameter<uint32>();
-			GlobalVariable& variable = static_cast<GlobalVariable&>(context.mControlFlow->getProgram().getGlobalVariableByID(variableId));
-			variable.setValue(value);
+			UserDefinedVariable& variable = static_cast<UserDefinedVariable&>(context.mControlFlow->getProgram().getGlobalVariableByID(variableId));
+			variable.mSetter(*context.mControlFlow);	// This is supposed to read the value to set from the value stack (but also leave it there)
 		}
 
 		template<typename T>

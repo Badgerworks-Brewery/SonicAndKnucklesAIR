@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -27,7 +27,7 @@ public:
 	GameView(Simulation& simulation);
 	~GameView();
 
-	inline const Rectf& getGameViewport() const  { return mGameViewport; }
+	inline const Recti& getGameViewport() const  { return mGameViewport; }
 	void updateGameViewport();
 
 	bool translatePositionIntoGameViewport(Vec2f& outPosition, const Vec2f& inPosition) const;
@@ -39,6 +39,7 @@ public:
 	virtual void deinitialize() override;
 	virtual void keyboard(const rmx::KeyboardEvent& ev) override;
 	virtual void mouse(const rmx::MouseEvent& ev) override;
+	void earlyUpdate(float timeElapsed);
 	virtual void update(float timeElapsed) override;
 	virtual void render() override;
 
@@ -48,6 +49,8 @@ public:
 	void startFadingIn(float fadeTime = 0.25f);
 	void startFadingOut(float fadeTime = 0.25f);
 	inline void setWhiteOverlayAlpha(float alpha)  { mWhiteOverlayAlpha = alpha; }
+
+	void getScreenshot(Bitmap& outBitmap);
 
 	void setStillImageMode(StillImageMode mode, float timeout = 0.0f);
 
@@ -66,7 +69,7 @@ private:
 private:
 	Simulation& mSimulation;
 
-	Rectf mGameViewport;
+	Recti mGameViewport;
 
 	float mFadeValue = 1.0f;
 	float mFadeChange = 0.0f;
@@ -81,4 +84,7 @@ private:
 	DrawerTexture mDebugVisualizationsOverlay;
 
 	DrawerTexture mFinalGameTexture;
+
+	float mRewindTimer = 0.0f;
+	int mRewindCounter = 0;
 };

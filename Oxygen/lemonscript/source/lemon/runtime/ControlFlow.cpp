@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -69,6 +69,15 @@ namespace lemon
 			outLocation.mFunction = nullptr;
 			outLocation.mProgramCounter = 0;
 		}
+	}
+
+	const ScriptFunction* ControlFlow::getCurrentFunction() const
+	{
+		if (mCallStack.empty())
+			return nullptr;
+
+		const RuntimeFunction* runtimeFunction = mCallStack.back().mRuntimeFunction;
+		return (nullptr != runtimeFunction) ? runtimeFunction->mFunction : nullptr;
 	}
 
 }

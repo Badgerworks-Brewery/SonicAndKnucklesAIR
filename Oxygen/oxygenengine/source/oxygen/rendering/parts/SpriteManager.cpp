@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -10,8 +10,10 @@
 #include "oxygen/application/EngineMain.h"
 #include "oxygen/rendering/parts/SpriteManager.h"
 #include "oxygen/rendering/parts/PatternManager.h"
-#include "oxygen/resources/SpriteCache.h"
+#include "oxygen/resources/PaletteCollection.h"
+#include "oxygen/resources/SpriteCollection.h"
 #include "oxygen/simulation/EmulatorInterface.h"
+#include "oxygen/simulation/LogDisplay.h"
 
 
 SpriteManager::SpriteManager(PatternManager& patternManager, SpacesManager& spacesManager) :
@@ -37,6 +39,7 @@ void SpriteManager::preFrameUpdate()
 {
 	mCurrentContext = RenderItem::LifetimeContext::DEFAULT;
 	mLogicalSpriteSpace = Space::SCREEN;
+	mLoggedLimitWarning = false;
 	mSpriteTag = 0;
 	mTaggedSpritesLastFrame.swap(mTaggedSpritesThisFrame);
 	mTaggedSpritesThisFrame.clear();
@@ -55,27 +58,10 @@ void SpriteManager::postFrameUpdate()
 		}
 
 		// Apply added render items
-		grabAddedSprites();
+		grabAddedItems();
 
 		clearLifetimeContext(RenderItem::LifetimeContext::OUTSIDE_FRAME);
 		mCurrentContext = RenderItem::LifetimeContext::OUTSIDE_FRAME;
-
-		// Process coordinates of all render items
-		{
-			const Vec2i worldSpaceOffset = mSpacesManager.getWorldSpaceOffset();
-			for (int contextIndex = 0; contextIndex < RenderItem::NUM_CONTEXTS; ++contextIndex)
-			{
-				for (RenderItem* renderItem : mContexts[contextIndex].mItems)
-				{
-					if (renderItem->mCoordinatesSpace == SpriteManager::Space::WORLD)
-					{
-						// Move to screen space
-						renderItem->mPosition -= worldSpaceOffset;
-						renderItem->mCoordinatesSpace = SpriteManager::Space::SCREEN;
-					}
-				}
-			}
-		}
 
 		if (mResetRenderItems)
 		{
@@ -112,16 +98,13 @@ void SpriteManager::postFrameUpdate()
 
 void SpriteManager::postRefreshDebugging()
 {
-	grabAddedSprites();
+	grabAddedItems();
 }
 
 void SpriteManager::drawVdpSprite(const Vec2i& position, uint8 encodedSize, uint16 patternIndex, uint16 renderQueue, const Color& tintColor, const Color& addedColor)
 {
-	if (mAddedItems.mItems.size() >= 0x400)
-	{
-		RMX_ERROR("Reached the upper limit of " << mAddedItems.mItems.size() << " items to render, further ones will be ignored", );
+	if (!checkRenderItemLimit())
 		return;
-	}
 
 	renderitems::VdpSpriteInfo& sprite = mPoolOfRenderItems.mVdpSprites.createObject();
 	sprite.mPosition = position;
@@ -134,6 +117,7 @@ void SpriteManager::drawVdpSprite(const Vec2i& position, uint8 encodedSize, uint
 	sprite.mAddedColor = addedColor;
 	sprite.mCoordinatesSpace = Space::SCREEN;
 	sprite.mLogicalSpace = mLogicalSpriteSpace;
+	sprite.mUseGlobalComponentTint = false;;
 	mAddedItems.mItems.push_back(&sprite);
 
 	if (EngineMain::getDelegate().useDeveloperFeatures())
@@ -183,7 +167,7 @@ void SpriteManager::drawCustomSpriteWithTransform(uint64 key, const Vec2i& posit
 	//  - 0x10 = Fully opaque
 	//  - 0x20 = World space
 	//  - 0x40 = Priority flag
-	//  - 0x80 = Use global tint
+	//  - 0x80 = Ignore global component tint (note this gets set automatically for palette sprites; to draw a palette sprite with global component tint, you need to use a sprite handle)
 
 	renderitems::CustomSpriteInfoBase* spritePtr = addSpriteByKey(key);
 	if (nullptr == spritePtr)
@@ -203,7 +187,7 @@ void SpriteManager::drawCustomSpriteWithTransform(uint64 key, const Vec2i& posit
 	sprite.mPriorityFlag = (flags & 0x40) != 0;
 	sprite.mBlendMode = (flags & 0x10) ? BlendMode::OPAQUE : BlendMode::ALPHA;
 	sprite.mCoordinatesSpace = ((flags & 0x20) != 0) ? Space::WORLD : Space::SCREEN;
-	sprite.mUseGlobalComponentTint = (flags & 0x80) == 0;
+	sprite.mUseGlobalComponentTint = ((flags & 0x80) == 0) && sprite.mCacheItem->mUsesComponentSprite;
 
 	// Flip X / Y
 	const bool flipX = (flags & 0x01) != 0;
@@ -225,7 +209,7 @@ void SpriteManager::drawCustomSpriteWithTransform(uint64 key, const Vec2i& posit
 		sprite.mUseUpscaledSprite = true;
 
 		const constexpr float SCALE = 1.0f / 3.0f;
-		const Vec2f transformedOffset = sprite.mTransformation.transformVector(sprite.mCacheItem->mSprite->mOffset);
+		const Vec2f transformedOffset = sprite.mTransformation.transformVector(Vec2f(sprite.mCacheItem->mSprite->mOffset));
 		sprite.mPosition.x += roundToInt(transformedOffset.x * (1.0f - SCALE));
 		sprite.mPosition.y += roundToInt(transformedOffset.y * (1.0f - SCALE));
 		sprite.mSize *= 3;
@@ -237,12 +221,8 @@ void SpriteManager::drawCustomSpriteWithTransform(uint64 key, const Vec2i& posit
 
 void SpriteManager::addSpriteMask(const Vec2i& position, const Vec2i& size, uint16 renderQueue, bool priorityFlag, Space space)
 {
-	// TODO: Originally, the number of sprite masks was 0x40
-	if (mAddedItems.mItems.size() >= 0x400)
-	{
-		RMX_ERROR("Reached the upper limit of " << mAddedItems.mItems.size() << " items to render, further ones will be ignored", );
+	if (!checkRenderItemLimit())
 		return;
-	}
 
 	renderitems::SpriteMaskInfo& sprite = mPoolOfRenderItems.mSpriteMasks.createObject();
 	sprite.mPosition = position;
@@ -256,11 +236,8 @@ void SpriteManager::addSpriteMask(const Vec2i& position, const Vec2i& size, uint
 
 void SpriteManager::addRectangle(const Recti& rect, const Color& color, uint16 renderQueue, Space space, bool useGlobalComponentTint)
 {
-	if (mAddedItems.mItems.size() >= 0x400)
-	{
-		RMX_ERROR("Reached the upper limit of " << mAddedItems.mItems.size() << " items to render, further ones will be ignored", );
+	if (!checkRenderItemLimit())
 		return;
-	}
 
 	renderitems::Rectangle& newRect = mPoolOfRenderItems.mRectangles.createObject();
 	newRect.mPosition = rect.getPos();
@@ -275,11 +252,8 @@ void SpriteManager::addRectangle(const Recti& rect, const Color& color, uint16 r
 
 void SpriteManager::addText(std::string_view fontKeyString, uint64 fontKeyHash, const Vec2i& position, std::string_view textString, uint64 textHash, const Color& color, int alignment, int spacing, uint16 renderQueue, Space space, bool useGlobalComponentTint)
 {
-	if (mAddedItems.mItems.size() >= 0x400)
-	{
-		RMX_ERROR("Reached the upper limit of " << mAddedItems.mItems.size() << " items to render, further ones will be ignored", );
+	if (!checkRenderItemLimit())
 		return;
-	}
 
 	renderitems::Text& newText = mPoolOfRenderItems.mTexts.createObject();
 	newText.mFontKeyString = fontKeyString;
@@ -297,6 +271,16 @@ void SpriteManager::addText(std::string_view fontKeyString, uint64 fontKeyHash, 
 	mAddedItems.mItems.push_back(&newText);
 }
 
+void SpriteManager::addViewport(const Recti& rect, uint16 renderQueue)
+{
+	renderitems::Viewport& newViewport = mPoolOfRenderItems.mViewports.createObject();
+	newViewport.mPosition = rect.getPos();
+	newViewport.mSize = rect.getSize();
+	newViewport.mRenderQueue = renderQueue;
+	newViewport.mCoordinatesSpace = Space::SCREEN;
+	mAddedItems.mItems.push_back(&newViewport);
+}
+
 uint32 SpriteManager::addSpriteHandle(uint64 key, const Vec2i& position, uint16 renderQueue)
 {
 	const uint32 spriteHandle = mNextSpriteHandle;
@@ -304,7 +288,8 @@ uint32 SpriteManager::addSpriteHandle(uint64 key, const Vec2i& position, uint16 
 	if (mNextSpriteHandle == 0)
 		++mNextSpriteHandle;
 
-	SpriteHandleData& data = mSpritesHandles[spriteHandle];
+	SpriteHandleData& data = vectorAdd(mSpriteHandles);
+	data.mHandle = spriteHandle;
 	data.mKey = key;
 	data.mPosition = position;
 	data.mRenderQueue = renderQueue;
@@ -317,17 +302,26 @@ uint32 SpriteManager::addSpriteHandle(uint64 key, const Vec2i& position, uint16 
 SpriteManager::SpriteHandleData* SpriteManager::getSpriteHandleData(uint32 spriteHandle)
 {
 	// Use the quick lookup if possible
+	RMX_ASSERT(nullptr == mLatestSpriteHandle.second || mLatestSpriteHandle.first == mLatestSpriteHandle.second->mHandle, "Latest sprite handle cache is inconsistent");
 	if (mLatestSpriteHandle.first == spriteHandle)
 		return mLatestSpriteHandle.second;
 
-	// Otherwise search the map
-	const auto it = mSpritesHandles.find(spriteHandle);
-	if (it == mSpritesHandles.end())
-		return nullptr;
+	// Otherwise search for the handle
+	//  -> TODO: At least for now, the sprite handles are always in order, so we could do a binary search here
+	SpriteHandleData* data = nullptr;
+	for (auto it = mSpriteHandles.rbegin(); it != mSpriteHandles.rend(); ++it)
+	{
+		if (it->mHandle == spriteHandle)
+		{
+			data = &*it;
+			break;
+		}
+	}
 
-	SpriteHandleData& data = it->second;
-	mLatestSpriteHandle = std::make_pair(spriteHandle, &data);
-	return &data;
+	if (nullptr != data)
+		mLatestSpriteHandle = std::make_pair(spriteHandle, data);
+
+	return data;
 }
 
 void SpriteManager::setLogicalSpriteSpace(Space space)
@@ -405,10 +399,10 @@ SpriteManager::ItemSet& SpriteManager::getItemsByContext(RenderItem::LifetimeCon
 
 renderitems::CustomSpriteInfoBase* SpriteManager::addSpriteByKey(uint64 key)
 {
-	const SpriteCache::CacheItem* item = SpriteCache::instance().getSprite(key);
+	const SpriteCollection::Item* item = SpriteCollection::instance().getSprite(key);
 	if (nullptr != item)
 	{
-		if (mAddedItems.mItems.size() < 0x400)
+		if (checkRenderItemLimit())
 		{
 			if (item->mUsesComponentSprite)
 			{
@@ -433,7 +427,6 @@ renderitems::CustomSpriteInfoBase* SpriteManager::addSpriteByKey(uint64 key)
 				return &sprite;
 			}
 		}
-		RMX_ERROR("Reached the upper limit of " << mAddedItems.mItems.size() << " items to render, further ones will be ignored", );
 	}
 	return nullptr;
 }
@@ -454,21 +447,45 @@ void SpriteManager::checkSpriteTag(renderitems::SpriteInfo& sprite)
 	}
 }
 
+bool SpriteManager::checkRenderItemLimit()
+{
+	const constexpr size_t LIMIT = 2048;
+	if (mAddedItems.mItems.size() < LIMIT)
+	{
+		// Everything's okay
+		return true;
+	}
+	else
+	{
+		// Reached the limit
+		if (!mLoggedLimitWarning)
+		{
+			if (EngineMain::getDelegate().useDeveloperFeatures())
+				LogDisplay::instance().setLogDisplay("Warning: Exceeded the upper limit of " + std::to_string(LIMIT) + " items to render, further ones will be ignored");
+			mLoggedLimitWarning = true;
+		}
+		return false;
+	}
+}
+
 void SpriteManager::processSpriteHandles()
 {
-	for (const auto& [key, data] : mSpritesHandles)
+	PaletteCollection& paletteCollection = PaletteCollection::instance();
+
+	for (const SpriteHandleData& data : mSpriteHandles)
 	{
 		renderitems::CustomSpriteInfoBase* spritePtr = addSpriteByKey(data.mKey);
 		if (nullptr == spritePtr)
 			continue;
 
 		renderitems::CustomSpriteInfoBase& sprite = *spritePtr;
+
 		sprite.mPosition = data.mPosition;
 		sprite.mRenderQueue = data.mRenderQueue;
 		sprite.mPriorityFlag = data.mPriorityFlag;
 		sprite.mTintColor = data.mTintColor;
 		sprite.mAddedColor = data.mAddedColor;
-		sprite.mUseGlobalComponentTint = data.mUseGlobalComponentTint;
+		sprite.mUseGlobalComponentTint = data.mUseGlobalComponentTint.has_value() ? *data.mUseGlobalComponentTint : sprite.mCacheItem->mUsesComponentSprite;
 		sprite.mBlendMode = data.mBlendMode;
 		sprite.mCoordinatesSpace = data.mCoordinatesSpace;
 		sprite.mUseUpscaledSprite = data.mUseUpscaledSprite;
@@ -493,7 +510,12 @@ void SpriteManager::processSpriteHandles()
 
 		if (sprite.getType() == RenderItem::Type::PALETTE_SPRITE)
 		{
-			static_cast<renderitems::PaletteSpriteInfo&>(sprite).mAtex = data.mAtex;
+			renderitems::PaletteSpriteInfo& paletteSprite = static_cast<renderitems::PaletteSpriteInfo&>(sprite);
+			if (data.mPrimaryPaletteKey != 0)
+				paletteSprite.mPrimaryPalette = paletteCollection.getPalette(data.mPrimaryPaletteKey, 0);
+			if (data.mSecondaryPaletteKey != 0)
+				paletteSprite.mSecondaryPalette = paletteCollection.getPalette(data.mSecondaryPaletteKey, 0);
+			paletteSprite.mAtex = data.mAtex;
 		}
 
 		if (data.mSpriteTag != 0)
@@ -509,16 +531,31 @@ void SpriteManager::processSpriteHandles()
 			taggedSpriteData.mPosition = data.mTaggedSpritePosition;
 		}
 	}
-	mSpritesHandles.clear();
+	mSpriteHandles.clear();
 }
 
-void SpriteManager::grabAddedSprites()
+void SpriteManager::grabAddedItems()
 {
+	const Vec2i worldSpaceOffset = mSpacesManager.getWorldSpaceOffset();
+
 	// Add render items from "next" to "current", in reverse order
 	for (auto it = mAddedItems.mItems.rbegin(); it != mAddedItems.mItems.rend(); ++it)
 	{
-		getItemsByContext((*it)->mLifetimeContext).mItems.push_back(*it);
+		RenderItem* renderItem = *it;
+
+		// Process coordinates if in world space
+		if (renderItem->mCoordinatesSpace == SpriteManager::Space::WORLD)
+		{
+			// Move to screen space
+			renderItem->mPosition -= worldSpaceOffset;
+			renderItem->mCoordinatesSpace = SpriteManager::Space::SCREEN;
+		}
+
+		// Add to the right context
+		ItemSet& itemSet = getItemsByContext(renderItem->mLifetimeContext);
+		itemSet.mItems.push_back(renderItem);
 	}
+
 	mAddedItems.mItems.clear();		// Intentionally not using anything like "clearLifetimeContext" here, as it would invalidate the copied instances
 }
 
@@ -533,6 +570,7 @@ void SpriteManager::collectLegacySprites()
 		renderitems::VdpSpriteInfo& sprite = mPoolOfRenderItems.mVdpSprites.createObject();
 		sprite.mRenderQueue = 0x2100 - numSpritesAdded;
 		sprite.mPriorityFlag = (data[2] & 0x8000) != 0;
+		sprite.mUseGlobalComponentTint = false;
 
 		// Note that for accurate emulation, this would be 0x1ff instead of 0x3ff
 		//  -> But it limits effective maximum sprite x-position to 383 = 0x17f, which is a bit too low for widescreen with e.g. 400px

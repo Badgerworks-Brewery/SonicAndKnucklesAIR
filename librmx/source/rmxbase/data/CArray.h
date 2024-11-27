@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2023 by Eukaryot
+*	Copyright (C) 2008-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -117,6 +117,8 @@ public:
 	inline TYPE& pop_back()			 { --count; return list[count]; }
 
 	inline bool empty() const		 { return count == 0; }
+	inline bool isEmpty() const		 { return count == 0; }
+	inline bool nonEmpty() const	 { return count != 0; }
 
 	TYPE* add()
 	{

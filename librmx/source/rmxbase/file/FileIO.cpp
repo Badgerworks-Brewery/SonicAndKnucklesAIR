@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2023 by Eukaryot
+*	Copyright (C) 2008-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -17,17 +17,9 @@
 	#include <direct.h>
 	#include <io.h>
 
-#elif defined(PLATFORM_LINUX)
+#elif defined(PLATFORM_LINUX) || defined(PLATFORM_WEB)
 	#include <filesystem>
 	namespace std_filesystem = std::filesystem;
-	#define USE_STD_FILESYSTEM
-
-	#include <dirent.h>
-	#include <sys/stat.h>
-
-#elif defined(PLATFORM_WEB)
-	#include <experimental/filesystem>
-	namespace std_filesystem = std::experimental::filesystem;
 	#define USE_STD_FILESYSTEM
 
 	#include <dirent.h>
@@ -48,7 +40,7 @@
 	#include <dirent.h>
 	#include <sys/stat.h>
 
-#elif defined(PLATFORM_ANDROID) || defined(PLATFORM_SWITCH) || defined(PLATFORM_IOS)
+#elif defined(PLATFORM_ANDROID) || defined(PLATFORM_SWITCH) || defined(PLATFORM_IOS) || defined(PLATFORM_VITA)
 	// This requires Android NDK 22
 	#include <filesystem>
 	namespace std_filesystem = std::filesystem;
@@ -226,6 +218,25 @@ namespace rmx
 				}
 			}
 		}
+
+		struct FileNameCharacterValidityLookup
+		{
+			FileNameCharacterValidityLookup()
+			{
+				for (int k = 32; k < 128; ++k)		// Exclude non-printable ASCII characters
+					mIsCharacterValid.setBit(k);
+				const std::wstring invalidCharacters = L"\"<>:|?*";		// Technically not all of these characters are problematic on all platforms, but we treat them all as illegal to avoid cross-platform issues
+				for (wchar_t ch : invalidCharacters)
+					mIsCharacterValid.clearBit(ch);
+			}
+
+			bool isValid(wchar_t ch) const  { return ch >= 128 || mIsCharacterValid.isBitSet(ch); }
+
+			BitArray<128> mIsCharacterValid;
+		};
+
+		static FileNameCharacterValidityLookup mFileNameCharacterValidityLookup;
+
 	}
 
 
@@ -408,6 +419,13 @@ namespace rmx
 		listDirectoryContentInternal(nullptr, &outDirectories, basePath, L"", false);
 	}
 
+	bool FileIO::isDirectoryPath(std::wstring_view path)
+	{
+		if (path.empty())
+			return false;
+		return (path.back() == L'/' || path.back() == L'\\');
+	}
+
 	void FileIO::normalizePath(std::wstring& path, bool isDirectory)
 	{
 		if (path.empty())
@@ -421,6 +439,13 @@ namespace rmx
 	{
 		if (path.empty())
 			return path;
+
+	#ifdef PLATFORM_VITA
+		// Assume that the path is always normal when it begins with ux0:/data
+		const WString t(path);
+		if (t.startsWith(L"ux0:/data/") || t.startsWith(L"ux0:data/"))
+			return path;
+	#endif
 
 		// Split the path into a list of directory / file names
 		std::wstring_view names[32];
@@ -523,6 +548,29 @@ namespace rmx
 		{
 			// No change, so input path is fine as result
 			return path;
+		}
+	}
+
+	bool FileIO::isValidFileName(std::wstring_view filename)
+	{
+		for (wchar_t ch : filename)
+		{
+			if (!mFileNameCharacterValidityLookup.isValid(ch))
+				return false;
+		}
+		return true;
+	}
+
+	void FileIO::sanitizeFileName(std::wstring& filename)
+	{
+		// Replace all characters that are not valid in a file name
+		//  -> Note that this does not replace slashes (though it converts backslashes to forward slashes)
+		for (wchar_t& ch : filename)
+		{
+			if (!mFileNameCharacterValidityLookup.isValid(ch))
+				ch = L'_';
+			else if (ch == L'\\')
+				ch = L'/';
 		}
 	}
 

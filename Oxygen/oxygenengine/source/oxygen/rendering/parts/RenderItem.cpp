@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -8,6 +8,7 @@
 
 #include "oxygen/pch.h"
 #include "oxygen/rendering/parts/RenderItem.h"
+#include "oxygen/simulation/EmulatorInterface.h"
 
 
 void RenderItem::serialize(VectorBinarySerializer& serializer, uint8 formatVersion)
@@ -60,9 +61,39 @@ void renderitems::CustomSpriteInfoBase::serialize(VectorBinarySerializer& serial
 	serializer.serialize(mTransformation.mInverse.w);
 	serializer.serializeAs<uint8>(mUseUpscaledSprite);
 
-	if (serializer.isReading())
+	if (formatVersion >= 5)
 	{
-		mCacheItem = SpriteCache::instance().getSprite(mKey);
+		if (serializer.isReading())
+		{
+			bool isROMBased = serializer.read<bool>();
+			if (isROMBased && nullptr == mCacheItem)
+			{
+				SpriteCollection::ROMSpriteData romSpriteData;
+				romSpriteData.serialize(serializer);
+				mCacheItem = &SpriteCollection::instance().setupSpriteFromROM(EmulatorInterface::instance(), romSpriteData, 0x00);
+			}
+			else
+			{
+				mCacheItem = SpriteCollection::instance().getSprite(mKey);
+			}
+		}
+		else
+		{
+			const bool isROMBased = (nullptr != mCacheItem && mCacheItem->mSourceInfo.mType == SpriteCollection::SourceInfo::Type::ROM_DATA);
+			serializer.write(isROMBased);
+			if (isROMBased)
+			{
+				// TODO: Avoid the const_cast here
+				const_cast<SpriteCollection::ROMSpriteData&>(mCacheItem->mSourceInfo.mROMSpriteData).serialize(serializer);
+			}
+		}
+	}
+	else
+	{
+		if (serializer.isReading())
+		{
+			mCacheItem = SpriteCollection::instance().getSprite(mKey);
+		}
 	}
 }
 
@@ -108,6 +139,14 @@ void renderitems::Text::serialize(VectorBinarySerializer& serializer, uint8 form
 	}
 }
 
+void renderitems::Viewport::serialize(VectorBinarySerializer& serializer, uint8 formatVersion)
+{
+	RenderItem::serialize(serializer, formatVersion);
+
+	serializer.serializeAs<uint16>(mSize.x);
+	serializer.serializeAs<uint16>(mSize.y);
+}
+
 
 RenderItem& PoolOfRenderItems::create(RenderItem::Type type)
 {
@@ -119,6 +158,7 @@ RenderItem& PoolOfRenderItems::create(RenderItem::Type type)
 		case RenderItem::Type::SPRITE_MASK:		 return mSpriteMasks.createObject();
 		case RenderItem::Type::RECTANGLE:		 return mRectangles.createObject();
 		case RenderItem::Type::TEXT:			 return mTexts.createObject();
+		case RenderItem::Type::VIEWPORT:		 return mViewports.createObject();
 		default:
 			RMX_ASSERT(false, "Trying to create unsupported render item type");
 			return mVdpSprites.createObject();
@@ -135,6 +175,7 @@ void PoolOfRenderItems::destroy(RenderItem& renderItem)
 		case RenderItem::Type::SPRITE_MASK:		 mSpriteMasks.destroyObject(static_cast<renderitems::SpriteMaskInfo&>(renderItem));  break;
 		case RenderItem::Type::RECTANGLE:		 mRectangles.destroyObject(static_cast<renderitems::Rectangle&>(renderItem));  break;
 		case RenderItem::Type::TEXT:			 mTexts.destroyObject(static_cast<renderitems::Text&>(renderItem));  break;
+		case RenderItem::Type::VIEWPORT:		 mViewports.destroyObject(static_cast<renderitems::Viewport&>(renderItem));  break;
 		default:
 			RMX_ASSERT(false, "Trying to destroy unsupported render item type");
 			break;

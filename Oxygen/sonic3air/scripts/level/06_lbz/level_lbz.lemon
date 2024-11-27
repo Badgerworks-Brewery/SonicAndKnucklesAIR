@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -269,7 +269,7 @@ function void fn053faa()
 function void fn053fc8()
 {
 	A5 = 0xffff0000 + u16[A3]
-	A5 +=  0x98
+	A5 += 0x98
 	fn23e4ec()
 }
 
@@ -305,11 +305,11 @@ function void fn053ff8()
 				objA1.update_address = 0x054164
 			}
 
-			#if STANDALONE
-				// We don't want the screen to move to the left from here
-				move_area.left = 0x3b60
-				camera.position.x.u16 = 0x3b60
-			#endif
+		#if STANDALONE
+			// We don't want the screen to move to the left from here
+			move_area.left = 0x3b60
+			camera.position.x.u16 = 0x3b60
+		#endif
 		}
 
 		A1 = 0xffffa94c
@@ -469,10 +469,10 @@ function void fn04ee9e()
 	u32 backupA4 = A4
 	u32 backupA5 = A5
 
-	A6 = addressof(camera.foreground.x)
+	A6 = addressof(camera.foreground.x)			// Address: 0xffffee80
 	fn04ef3c()
 
-	A5 = addressof(camera.foreground.x.old)
+	A5 = addressof(camera.foreground.x.old)		// Address: 0xffffee88
 	LoadTileContentInDirX.LBZ1()
 
 	D5 = backupD5
@@ -491,10 +491,10 @@ function void fn04eebc()
 	u32 backupA4 = A4
 	u32 backupA5 = A5
 
-	A6 = addressof(camera.background.x)
+	A6 = addressof(camera.background.x)			// Address: 0xffffee8c
 	fn04ef3c()
 
-	A5 = addressof(camera.background.x.old)
+	A5 = addressof(camera.background.x.old)		// Address: 0xffffee94
 	LoadTileContentInDirX.LBZ1()
 
 	D5 = backupD5
@@ -727,16 +727,12 @@ function void fn23e4d0()
 {
 	A1 = 0xffff0000 + u16[A3]
 	A1 += 0x7a
-	D0.u16 = u16[A3 - 0x08] - 6
-	D1 = 5
-
-	while (D1.s16 >= 0)
+	D0.u16 = u16[A3 - 0x08]
+	for (u8 k = 0; k < 6; ++k)
 	{
-		u32[(A1+=4)-4] = u32[(A5+=4)-4]
-		u16[(A1+=2)-2] = u16[(A5+=2)-2]
+		copyMemory(A1, A5, 6)
 		A5.u16 += D0.u16
 		A1.u16 += D0.u16
-		--D1.s16
 	}
 }
 
@@ -746,15 +742,12 @@ function void fn23e4ec()
 {
 	A1 = 0xffff0000 + u16[A3]
 	A1 += 0x74
-	D0.u16 = u16[A3 - 0x08] - 4
-	D1 = 0x0b
-
-	while (D1.s16 >= 0)
+	D0.u16 = u16[A3 - 0x08]
+	for (u8 k = 0; k < 12; ++k)
 	{
-		u32[(A1+=4)-4] = u32[(A5+=4)-4]
+		copyMemory(A1, A5, 4)
 		A5.u16 += D0.u16
 		A1.u16 += D0.u16
-		--D1.s16
 	}
 }
 
@@ -764,17 +757,12 @@ function void fn23e506()
 {
 	A1 = 0xffff0000 + u16[A3]
 	A1 += 0x42
-	D0.u16 = u16[A3 - 0x08] - 10
-	D1 = 0x0d
-
-	while (D1.s16 >= 0)
+	D0.u16 = u16[A3 - 0x08]
+	for (u8 k = 0; k < 14; ++k)
 	{
-		u32[(A1+=4)-4] = u32[(A5+=4)-4]
-		u32[(A1+=4)-4] = u32[(A5+=4)-4]
-		u16[(A1+=2)-2] = u16[(A5+=2)-2]
+		copyMemory(A1, A5, 10)
 		A5.u16 += D0.u16
 		A1.u16 += D0.u16
-		--D1.s16
 	}
 }
 
@@ -784,16 +772,12 @@ function void fn23e526()
 {
 	A1 = 0xffff0000 + u16[A3 + 0x08]
 	A1 += 0x26
-	D0.u16 = u16[A3 - 0x08] - 8
-	D1 = 8
-
-	while (D1.s16 >= 0)
+	D0.u16 = u16[A3 - 0x08]
+	for (u8 k = 0; k < 9; ++k)
 	{
-		u32[(A1+=4)-4] = u32[(A5+=4)-4]
-		u32[(A1+=4)-4] = u32[(A5+=4)-4]
+		copyMemory(A1, A5, 8)
 		A5.u16 += D0.u16
 		A1.u16 += D0.u16
-		--D1.s16
 	}
 }
 
@@ -1294,8 +1278,8 @@ function void fn05449a()
 //# address-hook(0x0544a4)
 function void fn0544a4()
 {
-	A6 = addressof(camera.background.y)
-	A5 = addressof(camera.background.y.old)
+	A6 = addressof(camera.background.y)			// Address: 0xffffee90
+	A5 = addressof(camera.background.y.old)		// Address: 0xffffee96
 	D1 = 0
 	D6 = 0x20
 	LoadTileContentInDirY()
@@ -1380,8 +1364,8 @@ function void fn0545de()
 	fn0549c6()
 	fn05480c()
 
-	A6 = addressof(camera.background.y)
-	A5 = addressof(camera.background.y.old)
+	A6 = addressof(camera.background.y)			// Address: 0xffffee90
+	A5 = addressof(camera.background.y.old)		// Address: 0xffffee96
 	D1 = 0
 	D6 = 0x20
 	LoadTileContentInDirY()
@@ -1427,11 +1411,11 @@ function void UpdateBackground.LBZ2()
 			for (u8 i = 0; i < 0x40; ++i)
 			{
 				u16[A1] = D1 >> 16
-				#if STANDALONE
-					// Add a nice moving waves effect
-					s16 distance = (0x1200 / (0x80 - i))
-					u16[A1] += (lookupSin(distance * 10 - level.framecounter) / s32(distance))
-				#endif
+			#if STANDALONE
+				// Add a nice moving waves effect
+				s16 distance = (0x1200 / (0x80 - i))
+				u16[A1] += (lookupSin(distance * 10 - level.framecounter) / s32(distance))
+			#endif
 				A1 += 2
 				D1 -= D3
 			}
@@ -1443,11 +1427,11 @@ function void UpdateBackground.LBZ2()
 			{
 				A1 -= 2
 				u16[A1] = D1 >> 16
-				#if STANDALONE
-					// Add a nice moving waves effect; except if underwater, there is another waves effect already
-					s16 distance = (0x1200 / (0x80 - i))
-					u16[A1] += (lookupSin(distance * 10 - level.framecounter) / s32(distance))
-				#endif
+			#if STANDALONE
+				// Add a nice moving waves effect; except if underwater, there is another waves effect already
+				s16 distance = (0x1200 / (0x80 - i))
+				u16[A1] += (lookupSin(distance * 10 - level.framecounter) / s32(distance))
+			#endif
 				D1 -= D3
 			}
 
@@ -1662,6 +1646,7 @@ function void fn01ca52()
 	{
 		camera.update_routine += 2
 
+		// Load patterns for the Death Egg (boosters, platforms, etc.) and the girders
 		Kosinski.addToDecompressionQueue(0x3e69b0, 0xffff9000)
 		Kosinski.addToDecompressionQueue(0x3ed3d4, 0xffff0000)
 

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -39,8 +39,7 @@ namespace
 	bool dumpPaletteAsBMP(int paletteIndex)
 	{
 		const PaletteManager& paletteManager = VideoOut::instance().getRenderParts().getPaletteManager();
-		Color palette[0x100] = { Color::TRANSPARENT };
-		paletteManager.getPalette(paletteIndex).dumpColors(palette, 0x100);
+		const uint32* palette = paletteManager.getMainPalette(paletteIndex).getRawColors();
 
 		PaletteBitmap bmp;
 		bmp.create(16, 16);
@@ -91,9 +90,10 @@ GameView::~GameView()
 
 void GameView::updateGameViewport()
 {
+	const Configuration& config = Configuration::instance();
 	const Recti gameScreenRect = VideoOut::instance().getScreenRect();
 
-	switch (Configuration::instance().mUpscaling)
+	switch (config.mUpscaling)
 	{
 		default:
 		case 0:
@@ -107,13 +107,17 @@ void GameView::updateGameViewport()
 		{
 			// Integer upscaling
 			mGameViewport = RenderUtils::getLetterBoxRect(mRect, gameScreenRect.getAspectRatio());
-			const int scale = (int)mGameViewport.height / gameScreenRect.height;
-			if (scale >= 1)
+
+			if (!config.mDevMode.mEnabled)	// If dev mode is enabled, integer scale is handled differently, see below
 			{
-				mGameViewport.width = (float)(gameScreenRect.width * scale);
-				mGameViewport.height = (float)(gameScreenRect.height * scale);
-				mGameViewport.x = mRect.x + (mRect.width - mGameViewport.width) / 2;
-				mGameViewport.y = mRect.y + (mRect.height - mGameViewport.height) / 2;
+				const int scale = mGameViewport.height / gameScreenRect.height;
+				if (scale >= 1)
+				{
+					mGameViewport.width = roundToInt((float)gameScreenRect.width * scale);
+					mGameViewport.height = roundToInt((float)gameScreenRect.height * scale);
+					mGameViewport.x = mRect.x + (mRect.width - mGameViewport.width) / 2;
+					mGameViewport.y = mRect.y + (mRect.height - mGameViewport.height) / 2;
+				}
 			}
 			break;
 		}
@@ -121,10 +125,9 @@ void GameView::updateGameViewport()
 		case 2:
 		{
 			// Halfway stretch to fill
-			const Rectf letterBox = RenderUtils::getLetterBoxRect(mRect, gameScreenRect.getAspectRatio());
-			mGameViewport.width = round((letterBox.width + mRect.width) * 0.5f);		// Average size of letter box and full stretch
-			mGameViewport.height = round((letterBox.height + mRect.height) * 0.5f);
-			mGameViewport.setPos((mRect.getSize() - mGameViewport.getSize()) * 0.5f);	// Center on screen
+			const Recti letterBox = RenderUtils::getLetterBoxRect(mRect, gameScreenRect.getAspectRatio());
+			mGameViewport.setPos((letterBox.getPos() + mRect.getPos()) / 2);		// Average between letter box and full stretch
+			mGameViewport.setSize((letterBox.getSize() + mRect.getSize()) / 2);
 			break;
 		}
 
@@ -141,6 +144,22 @@ void GameView::updateGameViewport()
 			mGameViewport = RenderUtils::getScaleToFillRect(mRect, gameScreenRect.getAspectRatio());
 			break;
 		}
+	}
+
+	if (config.mDevMode.mEnabled)
+	{
+		// Consider integer scaling
+		Vec2f scaledSize = Vec2f(mGameViewport.getSize()) * config.mDevMode.mGameViewScale;
+		if (config.mUpscaling == 1)
+		{
+			const int scale = std::max((int)((float)mGameViewport.height * config.mDevMode.mGameViewScale) / gameScreenRect.height, 1);
+			scaledSize = Vec2f(gameScreenRect.getSize() * scale);
+		}
+
+		const Vec2f maxPos = Vec2f(mRect.getEndPos()) - scaledSize;
+		mGameViewport.x = maxPos.x * (1.0f + config.mDevMode.mGameViewAlignment.x) / 2.0f;
+		mGameViewport.y = maxPos.y * (1.0f + config.mDevMode.mGameViewAlignment.y) / 2.0f;
+		mGameViewport.setSize(Vec2i(scaledSize));
 	}
 }
 
@@ -199,16 +218,14 @@ void GameView::deinitialize()
 	GuiBase::deinitialize();
 
 	// Remove all children, as they must not get deleted automatically (which would be the case if they stay added as children)
-	while (!mChildren.empty())
-	{
-		removeChild(*mChildren.begin());
-	}
+	removeAllChildren();
 }
 
 void GameView::keyboard(const rmx::KeyboardEvent& ev)
 {
 	GuiBase::keyboard(ev);
-	if (ev.state)
+
+	if (ev.state && !FTX::System->wasEventConsumed())
 	{
 		const bool altPressed = (FTX::keyState(SDLK_LALT) || FTX::keyState(SDLK_RALT));
 
@@ -301,7 +318,7 @@ void GameView::keyboard(const rmx::KeyboardEvent& ev)
 						{
 							HighResolutionTimer timer;
 							timer.start();
-							RenderResources::instance().loadSpriteCache();
+							RenderResources::instance().loadSprites();
 							ResourcesCache::instance().loadAllResources();
 							FontCollection::instance().reloadAll();
 							setLogDisplay(String(0, "Reloaded resources in %0.2f sec", timer.getSecondsSinceStart()));
@@ -375,11 +392,6 @@ void GameView::keyboard(const rmx::KeyboardEvent& ev)
 							setGameSpeed(FTX::keyState(SDLK_LCTRL) ? 0.01f : 0.05f);
 							break;
 
-						case SDLK_KP_PERIOD:
-							// Supporting both Shift and Ctrl, as the Shift + Peroid combination does not seem to work for all keyboards
-							mSimulation.setNextSingleStep(true, FTX::keyState(SDLK_LSHIFT) || FTX::keyState(SDLK_LCTRL));
-							break;
-
 						case SDLK_F7:
 						{
 							mSimulation.reloadLastState();
@@ -388,6 +400,7 @@ void GameView::keyboard(const rmx::KeyboardEvent& ev)
 						}
 
 						case SDLK_F11:
+						case SDLK_BACKQUOTE:	// Alternative, especially for Macs, where F11 has other functions already
 						{
 							HighResolutionTimer timer;
 							timer.start();
@@ -421,14 +434,10 @@ void GameView::keyboard(const rmx::KeyboardEvent& ev)
 					case SDLK_KP_PERIOD:
 					{
 						// Supporting both Shift and Ctrl, as the Shift + Peroid combination does not seem to work for all keyboards
-						mSimulation.setNextSingleStep(true, FTX::keyState(SDLK_LSHIFT) || FTX::keyState(SDLK_LCTRL));
-						break;
-					}
-
-					case SDLK_KP_9:
-					{
-						setGameSpeed(0.0f);
-						mSimulation.jumpToFrame(mSimulation.getFrameNumber() - 1);
+						const bool continueToDebugEvent = FTX::keyState(SDLK_LSHIFT) || FTX::keyState(SDLK_LCTRL);
+						mSimulation.setNextSingleStep(true, continueToDebugEvent);
+						if (!continueToDebugEvent)
+							setLogDisplay(String(0, "Single step | Frame: %d", mSimulation.getFrameNumber() + 1));
 						break;
 					}
 				}
@@ -454,7 +463,7 @@ void GameView::mouse(const rmx::MouseEvent& ev)
 		if (nullptr != functionName)
 		{
 			Vec2f relativePosition;
-			if (translatePositionIntoGameViewport(relativePosition, ev.position))
+			if (translatePositionIntoGameViewport(relativePosition, Vec2f(ev.position)))
 			{
 				const uint8 flags = (FTX::keyState(SDLK_LSHIFT) || FTX::keyState(SDLK_RSHIFT)) ? 0x01 : 0x00;
 
@@ -466,6 +475,12 @@ void GameView::mouse(const rmx::MouseEvent& ev)
 			}
 		}
 	}
+}
+
+void GameView::earlyUpdate(float timeElapsed)
+{
+	// Update children earlier than GameView's own siblings, especially S3AIR's MenuBackground before GameApp
+	GuiBase::update(timeElapsed);
 }
 
 void GameView::update(float timeElapsed)
@@ -487,6 +502,39 @@ void GameView::update(float timeElapsed)
 			mStillImage.mBlurringTimeout = 0.0f;
 			mStillImage.mMode = StillImageMode::STILL_IMAGE;
 		}
+	}
+
+	if (EngineMain::getDelegate().useDeveloperFeatures() && FTX::keyState(SDLK_KP_9) && mSimulation.getFrameNumber() > 0)
+	{
+		int rewindSteps = 0;
+		if (mRewindCounter == 0)
+		{
+			// Rewind in the first frame the key was just pressed
+			rewindSteps = 1;
+		}
+		else
+		{
+			mRewindTimer += (SDL_GetModState() & KMOD_SHIFT) ? (timeElapsed * 3.0f) : timeElapsed;
+			const float speed = (mRewindCounter == 1) ? 5 : (float)std::min(10 + mRewindCounter / 3, 120);
+			const float delay = 1.0f / speed;
+			if (mRewindTimer >= delay)
+			{
+				rewindSteps = (int)std::floor(mRewindTimer / delay);
+				mRewindTimer -= delay * (float)rewindSteps;
+			}
+		}
+
+		if (rewindSteps > 0)
+		{
+			setLogDisplay(String(0, "  Rewinding | Frame: %d", mSimulation.getFrameNumber() - rewindSteps));
+			mSimulation.setRewind(rewindSteps);
+			++mRewindCounter;
+		}
+	}
+	else
+	{
+		mRewindTimer = 0.0f;
+		mRewindCounter = 0;
 	}
 
 	// Debug output
@@ -531,7 +579,7 @@ void GameView::update(float timeElapsed)
 				}
 
 				Vec2f relativePosition;
-				if (translatePositionIntoRect(relativePosition, rect, FTX::mousePos()))
+				if (translatePositionIntoRect(relativePosition, rect, Vec2f(FTX::mousePos())))
 				{
 					const uint32 index = (int)(relativePosition.x * 64.0f) + (int)(relativePosition.y * 32.0f) * 64;
 					debugTracking.updateScriptLogValue("~index", rmx::hexString(index, 4));
@@ -550,14 +598,13 @@ void GameView::update(float timeElapsed)
 			}
 		}
 	}
-
-	GuiBase::update(timeElapsed);
 }
 
 void GameView::render()
 {
 	mRect = FTX::screenRect();
 
+	const Configuration& config = Configuration::instance();
 	Drawer& drawer = EngineMain::instance().getDrawer();
 	VideoOut& videoOut = VideoOut::instance();
 	const Recti gameScreenRect = VideoOut::instance().getScreenRect();
@@ -610,10 +657,9 @@ void GameView::render()
 	drawer.setBlendMode(BlendMode::OPAQUE);
 
 	// Simple mirror mode implementation: Just mirror the whole screen
-	if (Configuration::instance().mMirrorMode)
+	if (config.mMirrorMode)
 	{
-		const Recti drawRect(gameScreenRect.x + gameScreenRect.width, gameScreenRect.y, -gameScreenRect.width, gameScreenRect.height);
-		drawer.drawRect(drawRect, videoOut.getGameScreenTexture());
+		drawer.drawRect(gameScreenRect, videoOut.getGameScreenTexture(), Vec2f(1.0f, 0.0f), Vec2f(0.0f, 1.0f), Color::WHITE);
 	}
 	else
 	{
@@ -654,7 +700,7 @@ void GameView::render()
 			{
 				const int px = baseX + 1 + (k & 0x0f) * 5;
 				const int height = (k < 0x40) ? 4 : 2;
-				Color color = paletteManager.getPalette(paletteIndex).getColor(k);
+				Color color = paletteManager.getMainPalette(paletteIndex).getColor(k);
 				color.a = 1.0f;
 				drawer.drawRect(Recti(px, py, 4, height), color);
 
@@ -697,10 +743,16 @@ void GameView::render()
 	// White overlay (used in Time Attack restart)
 	if (mWhiteOverlayAlpha > 0.0f)
 	{
-		drawer.drawRect(FTX::screenRect(), Color(1.0f, 1.0f, 1.0f, mWhiteOverlayAlpha));
+		drawer.drawRect(gameScreenRect, Color(1.0f, 1.0f, 1.0f, mWhiteOverlayAlpha));
 	}
 
-	if (Configuration::instance().mPerformanceDisplay == 1)
+	// Fade from / to black
+	if (mFadeValue < 1.0f)
+	{
+		drawer.drawRect(gameScreenRect, Color(0.0f, 0.0f, 0.0f, 1.0f - mFadeValue));
+	}
+
+	if (config.mPerformanceDisplay == 1)
 	{
 		// Show frame rate, using pixelated display
 		const double averageTime = Profiling::getRootRegion().mAverageTime;
@@ -718,26 +770,21 @@ void GameView::render()
 	if (!FTX::Video->getVideoConfig().mAutoClearScreen)
 	{
 		// Draw black bars so no screen clearing is needed
-		const float x1 = mGameViewport.x;
-		const float x2 = mGameViewport.x + mGameViewport.width;
-		const float x3 = (float)FTX::Video->getScreenWidth();
-		const float y1 = mGameViewport.y;
-		const float y2 = mGameViewport.y + mGameViewport.height;
-		const float y3 = (float)FTX::Video->getScreenHeight();
+		const int x1 = mGameViewport.x;
+		const int x2 = mGameViewport.x + mGameViewport.width;
+		const int x3 = FTX::Video->getScreenWidth();
+		const int y1 = mGameViewport.y;
+		const int y2 = mGameViewport.y + mGameViewport.height;
+		const int y3 = FTX::Video->getScreenHeight();
 
-		drawer.drawRect(Rectf(0, 0, x3, y1), Color::BLACK);
-		drawer.drawRect(Rectf(0, y2, x3, y3 - y2), Color::BLACK);
-		drawer.drawRect(Rectf(0, y1, x1, y2 - y1), Color::BLACK);
-		drawer.drawRect(Rectf(x2, y1, x3 - x2, y2 - y1), Color::BLACK);
+		drawer.drawRect(Recti(0, 0, x3, y1), Color::BLACK);
+		drawer.drawRect(Recti(0, y2, x3, y3 - y2), Color::BLACK);
+		drawer.drawRect(Recti(0, y1, x1, y2 - y1), Color::BLACK);
+		drawer.drawRect(Recti(x2, y1, x3 - x2, y2 - y1), Color::BLACK);
 	}
 
 	// Enable alpha again
-	// TODO: Better do the fading inside the game viewport (instead of the full window) for performance reasons -- or apply to "drawUpscaledRect"
 	drawer.setBlendMode(BlendMode::ALPHA);
-	if (mFadeValue < 1.0f)
-	{
-		drawer.drawRect(FTX::screenRect(), Color(0.0f, 0.0f, 0.0f, 1.0f - mFadeValue));
-	}
 
 	drawer.performRendering();
 }
@@ -760,6 +807,11 @@ void GameView::startFadingOut(float fadeTime)
 {
 	mFadeChange = -1.0f / fadeTime;
 	setStillImageMode(StillImageMode::NONE);
+}
+
+void GameView::getScreenshot(Bitmap& outBitmap)
+{
+	mFinalGameTexture.writeContentToBitmap(outBitmap);
 }
 
 void GameView::setStillImageMode(StillImageMode mode, float timeout)

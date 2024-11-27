@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -166,7 +166,7 @@ function void fn0511c8()
 //# address-hook(0x05127c) end(0x0512a4)
 function void fn05127c()
 {
-	if (u8[0xffffb000 + 0x05] < 0x06 && (u16[0xffffeee8] == 0) && (camera.screenshake.state & 0x8000))
+	if (u8[0xffffb000 + 0x05] < base_state.DIED && (u16[0xffffeee8] == 0) && (camera.screenshake.state & 0x8000))
 	{
 		if (((level.framecounter - 1) & 0x0f) == 0)
 		{
@@ -399,7 +399,7 @@ function void fn05132c()
 //# address-hook(0x05134c) end(0x0514a8)
 function void fn05134c()
 {
-	if (u8[0xffffb000 + 0x05] >= 0x06)
+	if (u8[0xffffb000 + 0x05] >= base_state.DIED)
 		return
 
 	if ((camera.screenshake.state & 0x8000) == 0)
@@ -415,6 +415,7 @@ function void fn05134c()
 		{
 		#if STANDALONE
 			u8[A1-1] = 0	// Need to clear one more chunk on the left for widescreen
+			u8[A1+3] = 0	// And one on the right for ultrawide
 		#endif
 			u8[A1]   = 0
 			u8[A1+1] = 0
@@ -855,19 +856,17 @@ function void fn0516d0()
 //# address-hook(0x0516d2) end(0x051724)
 function void fn0516d2()
 {
-	D0.u16 = u16[0xffffb000 + 0x10]
-	D1.u16 = u16[0xffffb000 + 0x14]
+	u16 px = u16[0xffffb000 + 0x10]
+	u16 py = u16[0xffffb000 + 0x14]
 
 	A1 = 0x23cf7c
-	D2 = 4
-	D3 = 2
-	while (D3.s16 >= 0)
+	for (u8 k = 0; k < 3; ++k)
 	{
-		if (D0.u16 >= u16[A1] && D0.u16 < u16[A1 + 2] && D1.u16 >= u16[A1 + 4] && D1.u16 < u16[A1 + 6])
+		if (px >= u16[A1] && px < u16[A1 + 2] && py >= u16[A1 + 4] && py < u16[A1 + 6])
 		{
-			if (D2.u16 != 4 || (camera.screenshake.state & 0x8000))
+			if (k > 0 || (camera.screenshake.state & 0x8000))
 			{
-				u16[0xffffeed6] = D2.u16
+				u16[0xffffeed6] = 4 + k * 4
 				u16[0xffffeed8] = 0
 				u16[0xffffeeda] = 0
 				u16[0xffffeedc] = u16[A1 + 0x08]
@@ -879,8 +878,6 @@ function void fn0516d2()
 		}
 
 		A1 += 12
-		D2.u16 += 4
-		--D3.s16
 	}
 }
 

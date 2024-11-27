@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -456,7 +456,7 @@ function void fn074640()
 	{
 		// Handling primarily for Super forms
 		A1 = 0xffffb000
-		u8[A1 + 0x05] = 0x02
+		u8[A1 + 0x05] = base_state.NORMAL
 		objA1.velocity.x = -objA0.velocity.x
 		objA1.velocity.y = -0x400
 		objA1.state = char.state.ROLLING
@@ -1032,7 +1032,7 @@ function void fn074bc0()
 //# address-hook(0x074bd0) end(0x074bd4)
 function void fn074bd0()
 {
-	D0.u8 = 0x9a
+	D0.u8 = (collision.flag.THREAT | collision.size.12x12)
 	fn074ebc(0x074bd8)
 	fn074bd8()
 }

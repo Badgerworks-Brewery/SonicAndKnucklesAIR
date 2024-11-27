@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -21,6 +21,14 @@
 #include <lemon/program/Program.h>
 #include <lemon/runtime/StandardLibrary.h>
 #include <lemon/utility/PragmaSplitter.h>
+
+
+struct ModuleAppendedInfo : public lemon::Module::AppendedInfo
+{
+	inline explicit ModuleAppendedInfo(const Mod* mod) : mMod(mod) {}
+
+	const Mod* mMod = nullptr;
+};
 
 
 struct LemonScriptProgram::Internal
@@ -141,12 +149,18 @@ bool LemonScriptProgram::loadScriptModule(lemon::Module& module, lemon::GlobalsL
 				text += "Caused in module " + module.getModuleName() + ".";
 			else
 				text += "Caused in file '" + WString(error.mFilename).toStdString() + "', line " + std::to_string(error.mError.mLineNumber) + ", of module '" + module.getModuleName() + "'.";
-			RMX_ERROR(text, );
+
+			// Don't show an assert break message box again during debugging, because LEMON_DEBUG_BREAK already brought one up
+			if (!rmx::ErrorHandling::isDebuggerAttached())
+			{
+				RMX_ERROR(text, );
+			}
 			return false;
 		}
 	}
 	catch (...)
 	{
+		RMX_ERROR("Script compilation failed due to an unhandled exception", );
 		return false;
 	}
 
@@ -222,7 +236,6 @@ LemonScriptProgram::LoadScriptsResult LemonScriptProgram::loadScripts(const std:
 
 					// If there are no script functions at all, we consider that a failure
 					scriptsLoaded = scriptsLoaded && !mInternal.mScriptModule.getScriptFunctions().empty();
-					RMX_CHECK(scriptsLoaded, "Failed to compile scripts from source at '" << filename << "'", );
 
 					if (scriptsLoaded && !config.mCompiledScriptSavePath.empty())
 					{
@@ -240,7 +253,11 @@ LemonScriptProgram::LoadScriptsResult LemonScriptProgram::loadScripts(const std:
 		// Deserialize from compiled scripts
 		if (!scriptsLoaded && !config.mForceCompileScripts)
 		{
-			if (FTX::FileSystem->readFile(L"data/scripts.bin", buffer))
+			bool loaded = FTX::FileSystem->readFile(L"data/scripts.bin", buffer);
+			if (!loaded && !config.mCompiledScriptSavePath.empty())
+				loaded = FTX::FileSystem->readFile(config.mCompiledScriptSavePath, buffer);
+
+			if (loaded)
 			{
 				VectorBinarySerializer serializer(true, buffer);
 				scriptsLoaded = mInternal.mScriptModule.serialize(serializer, globalsLookup, coreModuleDependencyHash, loadOptions.mAppVersion);
@@ -274,7 +291,7 @@ LemonScriptProgram::LoadScriptsResult LemonScriptProgram::loadScripts(const std:
 				}
 
 				// Create and compile module
-				lemon::Module* module = new lemon::Module(mod->mUniqueID);
+				lemon::Module* module = new lemon::Module(mod->mUniqueID, new ModuleAppendedInfo(mod));
 				const std::wstring mainScriptFilename = mod->mFullPath + L"scripts/main.lemon";
 				const bool success = loadScriptModule(*module, globalsLookup, mainScriptFilename);
 				if (success)
@@ -474,36 +491,43 @@ lemon::Variable* LemonScriptProgram::getGlobalVariableByHash(uint64 hash) const
 	return mInternal.mProgram.getGlobalVariableByName(hash);
 }
 
-void LemonScriptProgram::resolveLocation(uint32 functionId, uint32 programCounter, std::string& scriptFilename, uint32& lineNumber) const
+const Mod* LemonScriptProgram::getModByModule(const lemon::Module& module) const
+{
+	const ModuleAppendedInfo* appendedInfo = static_cast<ModuleAppendedInfo*>(module.getAppendedInfo());
+	return (nullptr != appendedInfo) ? appendedInfo->mMod : nullptr;
+}
+
+void LemonScriptProgram::resolveLocation(ResolvedLocation& outResolvedLocation, uint32 functionId, uint32 programCounter) const
 {
 	const lemon::Function* function = mInternal.mProgram.getFunctionByID(functionId);
 	if (nullptr == function)
 	{
-		scriptFilename = *String(0, "<unknown function id %d>", functionId);
+		outResolvedLocation.mScriptFilename = *String(0, "<unknown function id %d>", functionId);
 	}
 	else
 	{
-		resolveLocation(*function, programCounter, scriptFilename, lineNumber);
+		resolveLocation(outResolvedLocation, *function, programCounter);
 	}
 }
 
-void LemonScriptProgram::resolveLocation(const lemon::Function& function, uint32 programCounter, std::string& scriptFilename, uint32& lineNumber)
+void LemonScriptProgram::resolveLocation(ResolvedLocation& outResolvedLocation, const lemon::Function& function, uint32 programCounter)
 {
 	if (function.getType() == lemon::Function::Type::SCRIPT)
 	{
 		const lemon::ScriptFunction& scriptFunc = static_cast<const lemon::ScriptFunction&>(function);
 		if (programCounter < scriptFunc.mOpcodes.size())
 		{
-			scriptFilename = *WString(scriptFunc.mSourceFileInfo->mFilename).toString();
-			lineNumber = scriptFunc.mOpcodes[programCounter].mLineNumber - scriptFunc.mSourceBaseLineOffset + 1;
+			outResolvedLocation.mSourceFileInfo = scriptFunc.mSourceFileInfo;
+			outResolvedLocation.mScriptFilename = *WString(scriptFunc.mSourceFileInfo->mFilename).toString();
+			outResolvedLocation.mLineNumber = scriptFunc.mOpcodes[programCounter].mLineNumber - scriptFunc.mSourceBaseLineOffset + 1;
 		}
 		else
 		{
-			scriptFilename = *String(0, "<invalid program counter %d in function '%.*s'>", programCounter, function.getName().getString().length(), function.getName().getString().data());
+			outResolvedLocation.mScriptFilename = *String(0, "<invalid program counter %d in function '%.*s'>", programCounter, function.getName().getString().length(), function.getName().getString().data());
 		}
 	}
 	else
 	{
-		scriptFilename = *String(0, "<native function '%.*s'>", function.getName().getString().length(), function.getName().getString().data());
+		outResolvedLocation.mScriptFilename = *String(0, "<native function '%.*s'>", function.getName().getString().length(), function.getName().getString().data());
 	}
 }

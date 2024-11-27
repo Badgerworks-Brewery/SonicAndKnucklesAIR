@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -263,7 +263,7 @@ void ModsMenu::initialize()
 	else
 	{
 		GameMenuEntries& entries = mTabs[0].mMenuEntries;
-	#if !defined(PLATFORM_ANDROID) && !defined(PLATFORM_WEB) && !defined(PLATFORM_IOS)
+	#if !defined(PLATFORM_ANDROID) && !defined(PLATFORM_WEB) && !defined(PLATFORM_IOS) && !defined(PLATFORM_VITA)
 		entries.addEntry("Open mods " DIRECTORY_STRING, 0xfff0);
 	#endif
 		entries.addEntry("Open Manual in web browser", 0xfff1);
@@ -465,6 +465,8 @@ void ModsMenu::update(float timeElapsed)
 
 					modEntry.mMakeActive = makeActive;
 
+					if (newTab.mMenuEntries.mSelectedEntryIndex >= (int)newTab.mMenuEntries.size())
+						newTab.mMenuEntries.mSelectedEntryIndex = std::max<int>(1, (int)newTab.mMenuEntries.size()) - 1;
 					newTab.mMenuEntries.insertByReference(entry, newTab.mMenuEntries.mSelectedEntryIndex);
 					menuEntries.erase(menuEntries.mSelectedEntryIndex);
 

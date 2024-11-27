@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -302,7 +302,7 @@ function void fn025194()
 {
 	u8[A1 + 0x2a] |= char.flag.IN_AIR
 	u8[A1 + 0x2a] &= ~char.flag.ON_OBJECT
-	u8[A1 + 0x05] = 0x02
+	u8[A1 + 0x05] = base_state.NORMAL
 	objA1.velocity.y = objA0.velocity.y
 }
 

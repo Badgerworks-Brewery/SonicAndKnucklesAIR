@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -40,9 +40,9 @@ function void fn02d5c6()
 function void fn02d612()
 {
 	u16 targetPositionX = 0x120
-	#if STANDALONE
-		targetPositionX += getScreenExtend()
-	#endif
+#if STANDALONE
+	targetPositionX += getScreenExtend()
+#endif
 
 	s16 diff = targetPositionX - objA0.position.x.u16
 	if (diff != 0)

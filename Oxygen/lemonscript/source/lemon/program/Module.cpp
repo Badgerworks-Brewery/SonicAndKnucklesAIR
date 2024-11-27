@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -22,9 +22,10 @@ namespace lemon
 	}
 
 
-	Module::Module(const std::string& name) :
+	Module::Module(const std::string& name, AppendedInfo* appendedInfo) :
 		mModuleName(name),
-		mModuleId(rmx::getMurmur2_64(name) & 0xffffffffffff0000ull)
+		mModuleId(rmx::getMurmur2_64(name) & 0xffffffffffff0000ull),
+		mAppendedInfo(appendedInfo)
 	{
 		static_assert((size_t)Opcode::Type::_NUM_TYPES == 36);	// Otherwise DEFAULT_OPCODE_BASETYPES needs to get updated
 	}
@@ -32,6 +33,7 @@ namespace lemon
 	Module::~Module()
 	{
 		clear();
+		delete mAppendedInfo;
 	}
 
 	void Module::clear()
@@ -52,7 +54,12 @@ namespace lemon
 		mNativeFunctionPool.clear();
 		mScriptFunctionPool.clear();
 
+		// Callable functions
+		mCallableFunctions.clear();
+
 		// Variables
+		for (Variable* var : mGlobalVariables)
+			delete var;
 		mGlobalVariables.clear();
 
 		// Constants
@@ -60,6 +67,7 @@ namespace lemon
 
 		// Constant arrays
 		mConstantArrays.clear();
+		mNumGlobalConstantArrays = 0;
 
 		// Defines
 		for (Define* define : mDefines)
@@ -135,7 +143,9 @@ namespace lemon
 				{
 					case DataTypeDefinition::Class::INTEGER:
 					{
-						content << rmx::hexString(constant->getValue().get<uint64>());
+						const uint64 value = constant->getValue().get<uint64>();
+						const uint32 minDigits = (uint32)constant->getDataType()->getBytes() * 2;
+						content << rmx::hexString(value, minDigits);
 						break;
 					}
 
@@ -172,14 +182,16 @@ namespace lemon
 			for (const Function* function : mFunctions)
 			{
 				const bool isMethod = !function->getContext().isEmpty();
-				if (isMethod == outputMethods)
-				{
-					if (function->getName().getString()[0] != '#')	// Exclude hidden built-ins (which can't be accessed by scripts directly anyways)
-					{
-						currentFunctions.push_back(function);
-					}
-				}
+				if (isMethod != outputMethods)
+					continue;
+				if (function->hasFlag(Function::Flag::EXCLUDE_FROM_DEFINITIONS))
+					continue;
+				if (function->getName().getString()[0] == '#')	// Exclude hidden built-ins (which can't be accessed by scripts directly anyways)
+					continue;
+
+				currentFunctions.push_back(function);
 			}
+
 			if (currentFunctions.empty())
 				continue;
 
@@ -305,6 +317,22 @@ namespace lemon
 
 		addFunctionInternal(func);
 		return func;
+	}
+
+	uint32 Module::addOrFindCallableFunctionAddress(const Function& function)
+	{
+		const uint64 nameHash = function.getName().getHash();
+		const uint32 address = ((uint32)nameHash & 0x0fffffff) | 0x10000000;	// Value 1 in the uppermost 4 bits tells us that this is referring to a function
+		uint64& ref = mCallableFunctions[address];
+		if (ref == 0)
+		{
+			ref = nameHash;
+		}
+		else
+		{
+			RMX_ASSERT(ref == nameHash, "Conflict: Function '" << function.getName() << "' uses the same callable address " << rmx::hexString(address, 8) << " as a different function");
+		}
+		return address;
 	}
 
 	void Module::addFunctionInternal(Function& func)

@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -300,7 +300,7 @@ function void fn08a9e0()
 
 	if (u8[A4 + 0x2e] == 0 && (u8[A4 + 0x2b] & char.bonus.INVINCIBLE) == 0)
 	{
-		if (u8[A4 + 0x34] == 0 && u8[A4 + 0x05] < 0x04)
+		if (u8[A4 + 0x34] == 0 && u8[A4 + 0x05] < base_state.HURT)
 		{
 			u16[A4 + 0x18] = 0
 			u16[A4 + 0x1a] = 0

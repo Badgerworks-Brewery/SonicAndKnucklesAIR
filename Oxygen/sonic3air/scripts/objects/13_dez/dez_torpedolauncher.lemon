@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -21,10 +21,10 @@ function void fn04719a()
 	D0 = u16(objA0.subtype2c) * 4
 	objA0.countdown_value = D0.u16
 	u16[A0 + 0x30] = D0.u16
-	#if STANDALONE
-		// Increase initial fire timer to accomplish for widescreen; some parts get a little unfair otherwise
-		objA0.countdown_value += getScreenExtend() / 4
-	#endif
+#if STANDALONE
+	// Increase initial fire timer to accomplish for widescreen; some parts get a little unfair otherwise
+	objA0.countdown_value += getScreenExtend() / 4
+#endif
 
 	objA0.update_address = 0x0471d6
 	fn0471d6()

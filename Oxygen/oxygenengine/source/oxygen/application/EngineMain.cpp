@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -17,16 +17,17 @@
 #include "oxygen/application/modding/ModManager.h"
 #include "oxygen/application/video/VideoOut.h"
 #include "oxygen/download/DownloadManager.h"
+#include "oxygen/devmode/ImGuiIntegration.h"
 #include "oxygen/drawing/opengl/OpenGLDrawer.h"
 #include "oxygen/drawing/software/SoftwareDrawer.h"
-#include "oxygen/platform/CrashHandler.h"
-#include "oxygen/platform/PlatformFunctions.h"
-#include "oxygen/resources/FontCollection.h"
-#include "oxygen/resources/ResourcesCache.h"
 #include "oxygen/file/PackedFileProvider.h"
 #include "oxygen/helper/FileHelper.h"
 #include "oxygen/helper/JsonHelper.h"
 #include "oxygen/helper/Logging.h"
+#include "oxygen/platform/CrashHandler.h"
+#include "oxygen/platform/PlatformFunctions.h"
+#include "oxygen/resources/FontCollection.h"
+#include "oxygen/resources/ResourcesCache.h"
 #include "oxygen/rendering/RenderResources.h"
 #include "oxygen/simulation/LogDisplay.h"
 #include "oxygen/simulation/PersistentData.h"
@@ -92,12 +93,14 @@ EngineMain::~EngineMain()
 
 void EngineMain::execute(int argc, char** argv)
 {
+#if !defined(PLATFORM_VITA)
 	// Setup arguments
 	mArguments.reserve(argc);
 	for (int i = 0; i < argc; ++i)
 	{
 		mArguments.emplace_back(argv[i]);
 	}
+#endif
 
 	// Startup the Oxygen engine part that is independent from the application / project
 	if (startupEngine())
@@ -113,7 +116,7 @@ void EngineMain::execute(int argc, char** argv)
 void EngineMain::onActiveModsChanged()
 {
 	// Update sprites
-	RenderResources::instance().loadSpriteCache(true);
+	RenderResources::instance().loadSprites(true);
 
 	// Update the resource cache -> palettes, raw data
 	ResourcesCache::instance().loadAllResources();
@@ -184,6 +187,8 @@ void EngineMain::switchToRenderMethod(Configuration::RenderMethod newRenderMetho
 
 		// Check OpenGL in the config again, it could have changed - namely if OpenGL initialization failed
 		nowUsingOpenGL = (config.mRenderMethod == Configuration::RenderMethod::OPENGL_FULL || config.mRenderMethod == Configuration::RenderMethod::OPENGL_SOFT);
+
+		ImGuiIntegration::onWindowRecreated(nowUsingOpenGL);
 	}
 
 	if (nowUsingOpenGL)
@@ -228,7 +233,7 @@ bool EngineMain::startupEngine()
 		return false;
 
 	std::wstring argumentProjectPath;
-#ifndef PLATFORM_ANDROID
+#if !defined(PLATFORM_ANDROID) && !defined(PLATFORM_VITA)
 	// Parse arguments
 	for (size_t i = 1; i < mArguments.size(); ++i)
 	{
@@ -324,6 +329,10 @@ bool EngineMain::startupEngine()
 	mAudioOut = &EngineMain::getDelegate().createAudioOut();
 	mAudioOut->startup();
 
+	// ImGui integration
+	ImGuiIntegration::setEnabled(config.mDevMode.mEnabled);
+	ImGuiIntegration::startup();
+
 	// Done
 	RMX_LOG_INFO("Engine startup successful");
 	return true;
@@ -342,6 +351,8 @@ void EngineMain::run()
 
 void EngineMain::shutdown()
 {
+	ImGuiIntegration::shutdown();
+
 	destroyWindow();
 
 	// Shutdown subsystems
@@ -372,7 +383,7 @@ void EngineMain::initDirectories()
 	const EngineDelegateInterface::AppMetaData& appMetaData = mDelegate.getAppMetaData();
 	Configuration& config = Configuration::instance();
 
-#if !defined(PLATFORM_ANDROID)
+#if !defined(PLATFORM_ANDROID) && !defined(PLATFORM_VITA)
 	config.mExePath = *String(mArguments[0]).toWString();
 #endif
 
@@ -383,6 +394,9 @@ void EngineMain::initDirectories()
 		// TODO: Use internal storage path as a fallback?
 		WString storagePath = String(SDL_AndroidGetExternalStoragePath()).toWString();
 		config.mAppDataPath = *(storagePath + L'/');
+	#elif defined(PLATFORM_VITA)
+		// Vita
+		config.mAppDataPath = L"ux0:data/sonic3air/savedata/";
 	#elif !defined(PLATFORM_IOS)
 		// Choose app data path
 		{
@@ -424,8 +438,7 @@ void EngineMain::initDirectories()
 	}
 
 	config.mSaveStatesDirLocal = config.mAppDataPath + L"savestates/";
-	config.mSRamFilename = config.mAppDataPath + L"sram.bin";
-	config.mPersistentDataFilename = config.mAppDataPath + L"persistentdata.bin";
+	config.mPersistentDataBasePath = config.mAppDataPath + L"storage/";
 }
 
 bool EngineMain::initConfigAndSettings(const std::wstring& argumentProjectPath)
@@ -435,11 +448,18 @@ bool EngineMain::initConfigAndSettings(const std::wstring& argumentProjectPath)
 	config.initialization();
 
 	RMX_LOG_INFO("Loading configuration");
+	if (FTX::FileSystem->exists(config.mAppDataPath + L"config.json"))
+	{
+		config.loadConfiguration(config.mAppDataPath + L"config.json");
+	}
+	else
+	{
 #if (defined(PLATFORM_MAC) || defined(PLATFORM_IOS)) && defined(ENDUSER)
-	config.loadConfiguration(config.mGameDataPath + L"/config.json");
+		config.loadConfiguration(config.mGameDataPath + L"/config.json");
 #else
-	config.loadConfiguration(L"config.json");
+		config.loadConfiguration(L"config.json");
 #endif
+	}
 
 	// Setup a custom game profile (like S3AIR does) or load the "oxygenproject.json"
 	const bool hasCustomGameProfile = mDelegate.setupCustomGameProfile();
@@ -479,7 +499,11 @@ bool EngineMain::initConfigAndSettings(const std::wstring& argumentProjectPath)
 		config.mRenderMethod = Configuration::RenderMethod::OPENGL_FULL;
 	}
 
-#if defined(PLATFORM_ANDROID) || defined(PLATFORM_IOS)
+	// Respect the platform's settings for supported render methods
+	if (config.mRenderMethod > Configuration::getHighestSupportedRenderMethod())
+		config.mRenderMethod = Configuration::getHighestSupportedRenderMethod();
+
+#if defined(PLATFORM_ANDROID) || defined(PLATFORM_IOS) || defined(PLATFORM_VITA)
 	// Use fullscreen, with no borders please
 	//  -> Note that this doesn't work for the web version, if running in mobile browsers - we rely on a window with fixed size (see config.json) there
 	config.mWindowMode = Configuration::WindowMode::EXCLUSIVE_FULLSCREEN;

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -86,6 +86,7 @@ public:
 	bool startConnectTo(ConnectionManager& connectionManager, const SocketAddress& remoteAddress, uint64 currentTimestamp);
 	bool isConnectedTo(uint16 localConnectionID, uint16 remoteConnectionID, uint64 senderKey) const;
 	void disconnect(DisconnectReason disconnectReason = DisconnectReason::MANUAL);
+	bool receivedAnyUniquePacketIDs() const;
 
 	bool sendPacket(highlevel::PacketBase& packet, SendFlags::Flags flags = SendFlags::NONE);
 	bool sendRequest(highlevel::RequestBase& request);

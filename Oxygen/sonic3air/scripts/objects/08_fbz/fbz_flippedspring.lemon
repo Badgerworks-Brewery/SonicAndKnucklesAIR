@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -70,7 +70,7 @@ function void fn03cb66()
 //# address-hook(0x03cbce) end(0x03cc46)
 function void fn03cbce()
 {
-	u8[A1 + 0x05] = 0x02
+	u8[A1 + 0x05] = base_state.NORMAL
 	objA1.velocity.y = (objA0.subtype2c & 0x02) ? -0xa00 : -0x1000
 	objA1.state = char.state.STRAIGHTJUMP
 	u8[A1 + 0x2a] |= char.flag.IN_AIR
@@ -163,7 +163,7 @@ function void fn023a3c()
 }
 
 
-//# address-hook(0x023a42) end(0x023326)
+//# address-hook(0x023a42) end(0x023a54)
 function void fn023a42()
 {
 	fn023ab8()

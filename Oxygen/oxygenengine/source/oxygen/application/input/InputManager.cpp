@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -11,6 +11,7 @@
 #include "oxygen/application/modding/ModManager.h"
 #include "oxygen/application/overlays/TouchControlsOverlay.h"
 #include "oxygen/application/Configuration.h"
+#include "oxygen/devmode/ImGuiIntegration.h"
 #include "oxygen/helper/Logging.h"
 #include "oxygen/rendering/utils/RenderUtils.h"
 #include "oxygen/simulation/LogDisplay.h"
@@ -185,7 +186,7 @@ namespace
 		}
 		joystickName.lowerCase();
 		const uint64 nameHashes[2] = { rmx::getMurmur2_64(joystickName), controllerName.empty() ? 0 : rmx::getMurmur2_64(controllerName) };
-		static const uint64 WILDCARD_HASH = rmx::getMurmur2_64(String("*"));
+		constexpr uint64 WILDCARD_HASH = rmx::constMurmur2_64("*");
 
 		for (size_t k = 0; k < definitions.size(); ++k)
 		{
@@ -922,7 +923,7 @@ void InputManager::setControllerLEDsForPlayer(int playerIndex, const Color& colo
 {
 #if SDL_VERSION_ATLEAST(2, 0, 14)
 	// TODO: Remove some of these exclusions where possible
-	#if !defined(PLATFORM_WEB) && !defined(PLATFORM_SWITCH) && !(defined(PLATFORM_WINDOWS) && defined(__GNUC__))
+	#if !defined(PLATFORM_WEB) && !defined(PLATFORM_SWITCH) && !defined(PLATFORM_VITA) && !(defined(PLATFORM_WINDOWS) && defined(__GNUC__))
 		for (size_t i = 0; i < mGamepads.size(); ++i)
 		{
 			if (mGamepads[i].mAssignedPlayer == playerIndex && nullptr != mGamepads[i].mSDLGameController)
@@ -936,7 +937,7 @@ void InputManager::setControllerLEDsForPlayer(int playerIndex, const Color& colo
 
 void InputManager::handleActiveModsChanged()
 {
-	static const uint64 FEATURE_NAME_HASH = rmx::getMurmur2_64("Controls_LR");
+	constexpr uint64 FEATURE_NAME_HASH = rmx::constMurmur2_64("Controls_LR");
 	mUsingControlsLR = ModManager::instance().anyActiveModUsesFeature(FEATURE_NAME_HASH);
 
 	if (TouchControlsOverlay::hasInstance())
@@ -996,7 +997,10 @@ bool InputManager::isPressed(const ControlInput& input)
 			{
 				// Ignore key presses while Alt is down
 				if (!FTX::keyState(SDLK_LALT) && !FTX::keyState(SDLK_RALT))
-					return true;
+				{
+					if (!ImGuiIntegration::isCapturingKeyboard())
+						return true;
+				}
 			}
 			break;
 		}

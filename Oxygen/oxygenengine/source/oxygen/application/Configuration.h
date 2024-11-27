@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -45,6 +45,8 @@ public:
 	struct DevModeSettings
 	{
 		bool mEnabled = false;
+		float mGameViewScale = 1.0f;
+		Vec2f mGameViewAlignment;
 	};
 
 	struct GameRecorder
@@ -92,6 +94,8 @@ public:
 	inline static bool hasInstance()		 { return (nullptr != mSingleInstance); }
 	inline static Configuration& instance()  { return *mSingleInstance; }
 
+	static RenderMethod getHighestSupportedRenderMethod();
+
 public:
 	Configuration();
 
@@ -130,8 +134,7 @@ public:
 	std::wstring mSaveStatesDir;
 	std::wstring mSaveStatesDirLocal;
 	std::wstring mAnalysisDir;
-	std::wstring mSRamFilename;
-	std::wstring mPersistentDataFilename;
+	std::wstring mPersistentDataBasePath;
 
 	// General
 	bool   mFailSafeMode = false;
@@ -150,7 +153,11 @@ public:
 
 	// Video
 	WindowMode mWindowMode = WindowMode::WINDOWED;
+#if defined(PLATFORM_VITA)
+	Vec2i mWindowSize = Vec2i(960, 544);
+#else
 	Vec2i mWindowSize = Vec2i(1200, 672);
+#endif
 	Vec2i mGameScreen = Vec2i(400, 224);
 	int   mDisplayIndex = 0;
 	RenderMethod mRenderMethod = RenderMethod::UNDEFINED;

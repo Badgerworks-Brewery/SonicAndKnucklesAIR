@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -16,7 +16,7 @@
 #ifdef PLATFORM_WINDOWS
 	#include <CleanWindowsInclude.h>
 	#include <shlobj.h>		// For "SHGetKnownFolderPath"
-#elif defined(PLATFORM_LINUX) || defined(PLATFORM_MAC) || defined(PLATFORM_ANDROID) || defined(PLATFORM_SWITCH) || defined(PLATFORM_IOS)
+#elif defined(PLATFORM_LINUX) || defined(PLATFORM_MAC) || defined(PLATFORM_ANDROID) || defined(PLATFORM_SWITCH) || defined(PLATFORM_IOS) || defined(PLATFORM_VITA)
 	#include <stdlib.h>
 	#include <unistd.h>
 	#include <sys/types.h>
@@ -579,6 +579,16 @@ void PlatformFunctions::openURLExternal(const std::string& url)
 	emscripten_run_script(command.c_str());
 #elif SDL_VERSION_ATLEAST(2, 0, 14)
 	SDL_OpenURL(url.c_str());
+#endif
+}
+
+bool PlatformFunctions::openApplicationExternal(const std::wstring& path, const std::wstring& arguments, const std::wstring& directory)
+{
+#ifdef PLATFORM_WINDOWS
+	return ::ShellExecuteW(nullptr, L"open", path.c_str(), arguments.c_str(), directory.c_str(), SW_SHOW);
+#else
+	// Not implemented for other platforms
+	return false;
 #endif
 }
 

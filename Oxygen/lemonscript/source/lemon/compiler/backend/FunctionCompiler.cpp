@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -113,7 +113,9 @@ namespace lemon
 			addOpcode(Opcode::Type::SET_VARIABLE_VALUE, variable->getDataType(), variable->getID());
 
 			// Pop value from stack (as SET_VARIABLE_VALUE opcode does not consume it)
-			addOpcode(Opcode::Type::MOVE_STACK, -1);
+			const int sizeOnStack = (int)variable->getDataType()->getSizeOnStack();
+			RMX_ASSERT(sizeOnStack != 0, "Invalid stack size of type " << variable->getDataType()->getName().getString());
+			addOpcode(Opcode::Type::MOVE_STACK, -sizeOnStack);
 		}
 	}
 
@@ -145,7 +147,7 @@ namespace lemon
 		else
 		{
 			// There could be jumps leading to the position after the return, correct them
-			//  -> E.g. when the function ends with and if-block that itself ends with a return
+			//  -> E.g. when the function ends with an if-block that itself ends with a return
 			for (Opcode& opcode : mOpcodes)
 			{
 				if (opcode.mType == Opcode::Type::JUMP || opcode.mType == Opcode::Type::JUMP_CONDITIONAL)
@@ -779,7 +781,9 @@ namespace lemon
 
 		if (consumeResult && token.mDataType->getClass() != DataTypeDefinition::Class::VOID)
 		{
-			addOpcode(Opcode::Type::MOVE_STACK, -1);	// Pop result of statement
+			const int sizeOnStack = (int)token.mDataType->getSizeOnStack();
+			RMX_ASSERT(sizeOnStack != 0, "Invalid stack size of type " << token.mDataType->getName().getString());
+			addOpcode(Opcode::Type::MOVE_STACK, -sizeOnStack);	// Pop result of statement
 		}
 	}
 

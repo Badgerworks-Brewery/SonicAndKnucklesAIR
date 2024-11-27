@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -10,7 +10,11 @@
 #include "oxygen/simulation/Simulation.h"
 #include "oxygen/simulation/CodeExec.h"
 #include "oxygen/simulation/EmulatorInterface.h"
+#include "oxygen/simulation/GameRecorder.h"
+#include "oxygen/simulation/LogDisplay.h"
 #include "oxygen/simulation/SaveStateSerializer.h"
+#include "oxygen/simulation/SimulationState.h"
+#include "oxygen/simulation/analyse/ROMDataAnalyser.h"
 #include "oxygen/application/Configuration.h"
 #include "oxygen/application/EngineMain.h"
 #include "oxygen/application/audio/AudioOutBase.h"
@@ -20,20 +24,17 @@
 #include "oxygen/helper/Logging.h"
 #include "oxygen/platform/PlatformFunctions.h"
 #include "oxygen/rendering/parts/RenderParts.h"
-#include "oxygen/simulation/GameRecorder.h"
-#include "oxygen/simulation/LogDisplay.h"
-#include "oxygen/simulation/analyse/ROMDataAnalyser.h"
 
 
 namespace
 {
-	void recordKeyFrame(uint32 frameNumber, CodeExec& codeExec, GameRecorder& gameRecorder, const GameRecorder::InputData& inputData)
+	void recordKeyFrame(uint32 frameNumber, Simulation& simulation, GameRecorder& gameRecorder, const GameRecorder::InputData& inputData)
 	{
 		static std::vector<uint8> data;
 		data.reserve(0x128000);
 		data.clear();
 
-		SaveStateSerializer serializer(codeExec, RenderParts::instance());
+		SaveStateSerializer serializer(simulation, RenderParts::instance());
 		serializer.saveState(data);
 
 		gameRecorder.addKeyFrame(frameNumber, inputData, data);
@@ -43,6 +44,7 @@ namespace
 
 Simulation::Simulation() :
 	mCodeExec(*new CodeExec()),
+	mSimulationState(*new SimulationState()),
 	mGameRecorder(*new GameRecorder()),
 	mInputRecorder(*new InputRecorder())
 {
@@ -55,6 +57,7 @@ Simulation::Simulation() :
 Simulation::~Simulation()
 {
 	delete &mCodeExec;
+	delete &mSimulationState;
 	delete &mGameRecorder;
 	delete &mInputRecorder;
 	delete mROMDataAnalyser;
@@ -147,6 +150,9 @@ void Simulation::resetIntoGame(const std::vector<std::pair<std::string, std::str
 	// Reset randomization
 	randomize();
 
+	// Reset simulation
+	mSimulationState.reset();
+
 	// Reset video & audio
 	VideoOut::instance().reset();
 	EngineMain::instance().getAudioOut().resetGame();
@@ -200,7 +206,7 @@ bool Simulation::loadState(const std::wstring& filename, bool showError)
 	EngineMain::instance().getAudioOut().reset();
 
 	SaveStateSerializer::StateType stateType;
-	SaveStateSerializer serializer(mCodeExec, RenderParts::instance());
+	SaveStateSerializer serializer(*this, RenderParts::instance());
 
 	const bool success = serializer.loadState(filename, &stateType);
 	if (!success)
@@ -224,7 +230,7 @@ bool Simulation::loadState(const std::wstring& filename, bool showError)
 
 void Simulation::saveState(const std::wstring& filename)
 {
-	SaveStateSerializer serializer(mCodeExec, RenderParts::instance());
+	SaveStateSerializer serializer(*this, RenderParts::instance());
 	const bool success = serializer.saveState(filename);
 	RMX_CHECK(success, "Failed to save save state '" << WString(filename).toStdString() << "'", return);
 
@@ -254,6 +260,19 @@ void Simulation::update(float timeElapsed)
 {
 	if (!isRunning() || !mCodeExec.isCodeExecutionPossible())
 		return;
+
+	if (mRewindSteps >= 0)
+	{
+		setSpeed(0.0f);
+		while (mRewindSteps >= 1)
+		{
+			if (jumpToFrame(mFrameNumber - mRewindSteps))
+				mRewindSteps = 0;
+			else
+				--mRewindSteps;		// Try again with one step less
+		}
+		mRewindSteps = -1;
+	}
 
 	// Limit length of one frame to 100ms
 	timeElapsed = clamp(timeElapsed, 0.0f, 0.1f);
@@ -357,7 +376,7 @@ bool Simulation::generateFrame()
 		// Game recorder: Save initial frame
 		if (isGameRecorderRecording && mGameRecorder.getRangeEnd() == 0)
 		{
-			recordKeyFrame(0, mCodeExec, mGameRecorder, GameRecorder::InputData());
+			recordKeyFrame(0, *this, mGameRecorder, GameRecorder::InputData());
 		}
 
 		// If game recorder has input data for the frame transition, then use that
@@ -372,7 +391,7 @@ bool Simulation::generateFrame()
 			{
 				// Load save state
 				SaveStateSerializer::StateType stateType;
-				SaveStateSerializer serializer(mCodeExec, RenderParts::instance());
+				SaveStateSerializer serializer(*this, RenderParts::instance());
 
 				const bool success = serializer.loadState(*result.mData, &stateType);
 				if (success)
@@ -454,10 +473,11 @@ bool Simulation::generateFrame()
 
 				// Keyframe every 3 seconds - except when dev mode is active, because rewinding requires more frequent keyframes
 				const int keyframeFrequency = EngineMain::getDelegate().useDeveloperFeatures() ? 10 : 180;
-				if (((mFrameNumber + 1) % keyframeFrequency) == 0)	
+				const int framesToKeep = EngineMain::getDelegate().useDeveloperFeatures() ? 3600 : 1800;
+				if (((mFrameNumber + 1) % keyframeFrequency) == 0)
 				{
-					recordKeyFrame(mFrameNumber + 1, mCodeExec, mGameRecorder, inputData);
-					mGameRecorder.discardOldFrames(1800);
+					recordKeyFrame(mFrameNumber + 1, *this, mGameRecorder, inputData);
+					mGameRecorder.discardOldFrames(framesToKeep);
 				}
 				else
 				{
@@ -474,7 +494,7 @@ bool Simulation::generateFrame()
 				GameRecorder::InputData inputData;
 				inputData.mInputs[0] = controlsIn.getInputPad(0);
 				inputData.mInputs[1] = controlsIn.getInputPad(1);
-				recordKeyFrame(mFrameNumber + 1, mCodeExec, mGameRecorder, inputData);
+				recordKeyFrame(mFrameNumber + 1, *this, mGameRecorder, inputData);
 			}
 		}
 
@@ -513,7 +533,7 @@ bool Simulation::jumpToFrame(uint32 frameNumber, bool clearRecordingAfterwards)
 		}
 
 		SaveStateSerializer::StateType stateType;
-		SaveStateSerializer serializer(mCodeExec, RenderParts::instance());
+		SaveStateSerializer serializer(*this, RenderParts::instance());
 
 		const bool success = serializer.loadState(*result.mData, &stateType);
 		if (success)

@@ -153,6 +153,9 @@
     <ClCompile Include="..\..\source\lemon\translator\NativizerInternal.cpp">
       <Filter>lemon\translator</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\source\lemon\utility\StringFormatter.cpp">
+      <Filter>lemon\utility</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\source\lemon\compiler\Compiler.h">
@@ -281,9 +284,6 @@
     <ClInclude Include="..\..\source\lemon\runtime\BuiltInFunctions.h">
       <Filter>lemon\runtime</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\source\lemon\runtime\FastStringStream.h">
-      <Filter>lemon\runtime</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\source\lemon\compiler\TokenHelper.h">
       <Filter>lemon\compiler</Filter>
     </ClInclude>
@@ -327,6 +327,15 @@
       <Filter>lemon\program</Filter>
     </ClInclude>
     <ClInclude Include="..\..\source\lemon\utility\QuickDataHasher.h">
+      <Filter>lemon\utility</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\lemon\program\ModuleBindingsBuilder.h">
+      <Filter>lemon\program</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\lemon\utility\StringFormatter.h">
+      <Filter>lemon\utility</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\lemon\utility\FastStringStream.h">
       <Filter>lemon\utility</Filter>
     </ClInclude>
   </ItemGroup>

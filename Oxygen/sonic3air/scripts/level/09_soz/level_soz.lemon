@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -126,8 +126,8 @@ function void fn055a9a()
 		fn055e96()
 		fn055d56()
 
-		A6 = addressof(camera.background.y)
-		A5 = addressof(camera.background.y.old)
+		A6 = addressof(camera.background.y)			// Address: 0xffffee90
+		A5 = addressof(camera.background.y.old)		// Address: 0xffffee96
 		D1 = 0
 		D6 = 0x20
 		LoadTileContentInDirY()
@@ -191,11 +191,11 @@ function void fn055b70()
 {
 	// This is called during pyramid rise and boss fight
 
-	#if STANDALONE
-		// In boss area, mask out sprites below the ground (except for the sand pit)
-		Renderer.addSpriteMaskWorld(0x4220, 0x0a00, 0x230, 0x40, 0x9f00, 1)
-		Renderer.addSpriteMaskWorld(0x4200, 0x0a08,  0x20, 0x38, 0x9f00, 1)
-	#endif
+#if STANDALONE
+	// In boss area, mask out sprites below the ground (except for the sand pit)
+	Renderer.addSpriteMaskWorld(0x4220, 0x0a00, 0x230, 0x40, 0x9f00, 1)
+	Renderer.addSpriteMaskWorld(0x4200, 0x0a08,  0x20, 0x38, 0x9f00, 1)
+#endif
 
 	if (u16[0xffffeec6] == 0x55)
 	{
@@ -816,10 +816,7 @@ function void fn05622c()
 	A1 = 0xffff0000 + u16[A3 + 0x1c]
 	A5 = A1 + 0xab
 	A1 += 0x95
-	u8[(A1+=1)-1] = u8[(A5+=1)-1]
-	u8[(A1+=1)-1] = u8[(A5+=1)-1]
-	u8[(A1+=1)-1] = u8[(A5+=1)-1]
-	u8[(A1+=1)-1] = u8[(A5+=1)-1]
+	copyMemory(A1, A5, 4)
 
 	A1 = 0xffff0000 + u16[A3 + 0x28]
 	A5 = A1 + 0xab
@@ -1120,8 +1117,8 @@ function void fn0563a6()
 
 function void fn0563c0()
 {
-	A6 = addressof(camera.background.y)
-	A5 = addressof(camera.background.y.old)
+	A6 = addressof(camera.background.y)			// Address: 0xffffee90
+	A5 = addressof(camera.background.y.old)		// Address: 0xffffee96
 	D1 = 0
 	D6 = 0x20
 	LoadTileContentInDirY()
@@ -1322,8 +1319,8 @@ function void fn0564d4()
 //# address-hook(0x0564e8)
 function void fn0564e8()
 {
-	A6 = addressof(camera.background.y)
-	A5 = addressof(camera.background.y.old)
+	A6 = addressof(camera.background.y)			// Address: 0xffffee90
+	A5 = addressof(camera.background.y.old)		// Address: 0xffffee96
 	D1 = 0
 	D6 = 0x20
 	LoadTileContentInDirY()
@@ -1456,8 +1453,8 @@ function void fn0566a4()
 //# address-hook(0x0566a8) end(0x0566b6)
 function void fn0566a8()
 {
-	A6 = addressof(camera.background.y)
-	A5 = addressof(camera.background.y.old)
+	A6 = addressof(camera.background.y)			// Address: 0xffffee90
+	A5 = addressof(camera.background.y.old)		// Address: 0xffffee96
 	D1.u16 = 0x0200
 	D6 = 0x20
 	LoadTileContentInDirY()
@@ -1499,7 +1496,7 @@ function void fn056706()
 {
 	camera.background.x.u16 = camera.foreground.x.u16 - 0x4010 + (0x5250 - u16[0xffffeede])
 	camera.background.y.u16 = camera.foreground.y.u16 - 0x0250 + (0x06d8 - u16[0xffffeee0])
-	if (u8[0xffffb000 + 0x05] >= 0x06)
+	if (u8[0xffffb000 + 0x05] >= base_state.DIED)
 	{
 		fn056936()
 		return
@@ -1559,7 +1556,7 @@ function void fn05675c()
 
 	A1 = 0xffffa934
 	D0 = 0xffffffff
-    D1 = 0x08
+	D1 = 0x08
 	while (D1.s16 >= 0)
 	{
 		u16[A1-=2] = D0.u16

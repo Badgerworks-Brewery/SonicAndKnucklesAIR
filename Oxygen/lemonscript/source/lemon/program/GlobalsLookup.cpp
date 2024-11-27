@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -89,6 +89,28 @@ namespace lemon
 		static const std::vector<Function*> EMPTY_FUNCTIONS;
 		const auto it = mFunctionsByName.find(nameHash);
 		return (it == mFunctionsByName.end()) ? EMPTY_FUNCTIONS : it->second;
+	}
+
+	const Function* GlobalsLookup::getFunctionByNameAndSignature(uint64 nameHash, uint32 signatureHash, bool* outAnyFound) const
+	{
+		const std::vector<Function*>& candidateFunctions = getFunctionsByName(nameHash);
+		if (candidateFunctions.empty())
+		{
+			if (nullptr != outAnyFound)
+				*outAnyFound = false;
+		}
+		else
+		{
+			if (nullptr != outAnyFound)
+				*outAnyFound = true;
+
+			for (const Function* func : candidateFunctions)
+			{
+				if (func->getSignatureHash() == signatureHash)
+					return func;
+			}
+		}
+		return nullptr;
 	}
 
 	const std::vector<Function*>& GlobalsLookup::getMethodsByName(uint64 contextNameHash) const

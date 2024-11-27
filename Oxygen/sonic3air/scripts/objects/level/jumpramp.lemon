@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -63,7 +63,7 @@ function void fn024d9a()
 
 			objA1.velocity.y = -0x700
 			u8[A1 + 0x2a] |= char.flag.IN_AIR
-			u8[A1 + 0x05] = 2
+			u8[A1 + 0x05] = base_state.NORMAL
 			u16[A1 + 0x1c] = 1
 			u8[A1 + 0x27] = 1		// Set x-rotation of character
 			u8[A1 + 0x20] = 0

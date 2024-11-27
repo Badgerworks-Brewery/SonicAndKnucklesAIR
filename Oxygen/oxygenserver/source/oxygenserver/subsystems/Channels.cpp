@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -173,6 +173,14 @@ void Channels::addPlayerToChannel(Channel& channel, ServerNetConnection& playerC
 
 	PlayerData& playerData = vectorAdd(channel.mPlayers);
 	playerData.mServerNetConnection = &playerConnection;
+}
+
+void Channels::removePlayerFromAllChannels(ServerNetConnection& playerConnection)
+{
+	for (auto it = mAllChannels.begin(); it != mAllChannels.end(); ++it)
+	{
+		removePlayerFromSingleChannel(*it->second, playerConnection);
+	}
 }
 
 void Channels::removePlayerFromSingleChannel(Channel& channel, ServerNetConnection& playerConnection)

@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2023 by Eukaryot
+*	Copyright (C) 2008-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -78,8 +78,6 @@ namespace rmx
 		SDL_Event evnt;
 		while (SDL_PollEvent(&evnt))
 		{
-			mRoot.sdlEvent(evnt);
-
 			switch (evnt.type)
 			{
 				case SDL_QUIT:
@@ -113,6 +111,8 @@ namespace rmx
 					ctx.mMousePos.set(evnt.motion.x, evnt.motion.y);
 					break;
 			}
+
+			mRoot.sdlEvent(evnt);
 		}
 
 		// Track changes since previous update
@@ -136,6 +136,8 @@ namespace rmx
 		ev.state = (evnt.type == SDL_KEYDOWN);
 		ev.repeat = (evnt.repeat != 0);
 		mInputContext.applyEvent(ev);
+
+		mCurrentEventConsumed = false;
 		mRoot.keyboard(ev);
 	}
 
@@ -143,6 +145,8 @@ namespace rmx
 	{
 		TextInputEvent ev;
 		ev.text.readUnicode((const uint8*)evnt.text, (uint32)strlen(evnt.text), UnicodeEncoding::UTF8);
+
+		mCurrentEventConsumed = false;
 		mRoot.textinput(ev);
 	}
 
@@ -158,6 +162,8 @@ namespace rmx
 		ev.state = (evnt.type == SDL_MOUSEBUTTONDOWN);
 		ev.position.set(evnt.x, evnt.y);
 		mInputContext.applyEvent(ev);
+
+		mCurrentEventConsumed = false;
 		mRoot.mouse(ev);
 	}
 
@@ -180,6 +186,7 @@ namespace rmx
 		mFrameRate = (1.0f / dt) * (1.0f - adaption) + mFrameRate * adaption;
 
 		// Update root GuiBase instance
+		mCurrentEventConsumed = false;
 		mRoot.update(dt);
 		++mFrameCounter;
 	}
@@ -192,6 +199,7 @@ namespace rmx
 		if (!FTX::Video->isActive())
 			return;
 
+		mCurrentEventConsumed = false;
 		FTX::Video->beginRendering();
 		mRoot.render();
 		FTX::Video->endRendering();
@@ -199,9 +207,9 @@ namespace rmx
 
 	void FTX_SystemManager::run(GuiBase& app)
 	{
-		mRoot.addChild(&app);
+		mRoot.addChild(app);
 		run();
-		mRoot.removeChild(&app);
+		mRoot.removeChild(app);
 	}
 
 	void FTX_SystemManager::mainLoop()
@@ -290,8 +298,8 @@ namespace rmx
 				flags |= SDL_WINDOW_RESIZABLE;
 		}
 
-		int startX = SDL_WINDOWPOS_UNDEFINED;
-		int startY = SDL_WINDOWPOS_UNDEFINED;
+		int startX = SDL_WINDOWPOS_CENTERED_DISPLAY(videoconfig.mDisplayIndex);
+		int startY = SDL_WINDOWPOS_CENTERED_DISPLAY(videoconfig.mDisplayIndex);
 		if (videoconfig.mPositioning)
 		{
 			startX = videoconfig.mStartPos.x;
@@ -379,7 +387,7 @@ namespace rmx
 		mInitialized = true;
 
 	#ifdef PLATFORM_WINDOWS
-		// Symbol setzen (Windows)
+		// Set icon (Windows)
 		if (mVideoConfig.mIconResource != 0)
 		{
 			HICON hIcon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(mVideoConfig.mIconResource));

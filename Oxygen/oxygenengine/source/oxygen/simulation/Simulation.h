@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -8,13 +8,13 @@
 
 #pragma once
 
-
 class AudioOutBase;
 class EmulatorInterface;
 class CodeExec;
 class GameRecorder;
 class InputRecorder;
 class ROMDataAnalyser;
+class SimulationState;
 
 
 class Simulation
@@ -32,6 +32,7 @@ public:
 	inline void setRunning(bool running)  { mIsRunning = running; }
 
 	CodeExec& getCodeExec()				  { return mCodeExec; }
+	SimulationState& getSimulationState() { return mSimulationState; }
 	ROMDataAnalyser* getROMDataAnalyser() { return mROMDataAnalyser; }
 	EmulatorInterface& getEmulatorInterface();
 
@@ -51,6 +52,8 @@ public:
 	bool generateFrame();
 	bool jumpToFrame(uint32 frameNumber, bool clearRecordingAfterwards = true);
 
+	inline void setRewind(int rewindSteps) { mRewindSteps = rewindSteps; }
+
 	float getSimulationFrequency() const;
 	void setSimulationFrequencyOverride(float frequency) { mSimulationFrequencyOverride = frequency; }
 	void disableSimulationFrequencyOverride()			 { mSimulationFrequencyOverride = 0.0f; }
@@ -68,6 +71,7 @@ public:
 
 private:
 	CodeExec& mCodeExec;
+	SimulationState& mSimulationState;
 	GameRecorder& mGameRecorder;
 	InputRecorder& mInputRecorder;
 	ROMDataAnalyser* mROMDataAnalyser = nullptr;
@@ -82,6 +86,7 @@ private:
 	double	mCurrentTargetFrame = 0.0f;
 	uint32	mFrameNumber = 0;
 	uint32	mLastCorrectionFrame = 0;
+	int		mRewindSteps = -1;		// -1 is no rewind enabled; 0 if rewind is enabled but inside delay before next rewind step; higher values for number of steps to rewind
 
 	std::wstring mStateLoaded;
 };

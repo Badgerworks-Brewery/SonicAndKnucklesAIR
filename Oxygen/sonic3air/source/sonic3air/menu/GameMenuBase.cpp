@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -36,6 +36,15 @@ GameMenuEntry::Option& GameMenuEntry::addOptionRef(const std::string& text, uint
 GameMenuEntry& GameMenuEntry::addOption(const std::string& text, uint32 value)
 {
 	addOptionRef(text, value);
+	return *this;
+}
+
+GameMenuEntry& GameMenuEntry::addOptions(const OptionsConfig::Setting& setting)
+{
+	for (const OptionsConfig::Setting::Option& option : setting.mOptions)
+	{
+		addOptionRef(option.mName, option.mValue);
+	}
 	return *this;
 }
 
@@ -277,6 +286,8 @@ void GameMenuEntries::insertCopy(const GameMenuEntry& toCopy, size_t index)
 
 void GameMenuEntries::insertByReference(GameMenuEntry& entry, size_t index)
 {
+	if (index > mEntries.size())
+		index = mEntries.size();
 	mEntries.insert(mEntries.begin() + index, &entry);
 }
 
@@ -397,11 +408,11 @@ bool GameMenuEntries::changeSelectedIndex(int change, bool loop)
 	const int originalIndex = mSelectedEntryIndex;
 	if (change < 0)
 	{
-		mSelectedEntryIndex = getPreviousInteractableIndex(mSelectedEntryIndex, loop);
+		mSelectedEntryIndex = (int)getPreviousInteractableIndex(mSelectedEntryIndex, loop);
 	}
 	else if (change > 0)
 	{
-		mSelectedEntryIndex = getNextInteractableIndex(mSelectedEntryIndex, loop);
+		mSelectedEntryIndex = (int)getNextInteractableIndex(mSelectedEntryIndex, loop);
 	}
 	return (mSelectedEntryIndex != originalIndex);
 }
@@ -445,7 +456,7 @@ size_t GameMenuEntries::getPreviousInteractableIndex(size_t index, bool loop) co
 		return 0;
 
 	const size_t originalIndex = index;
-	for (int tries = 0; tries < 100; ++tries)
+	for (int tries = 0; tries < (int)mEntries.size(); ++tries)
 	{
 		if (index > 0)
 			--index;
@@ -470,7 +481,7 @@ size_t GameMenuEntries::getNextInteractableIndex(size_t index, bool loop) const
 		return 0;
 
 	const size_t initialIndex = index;
-	for (int tries = 0; tries < 100; ++tries)
+	for (int tries = 0; tries < (int)mEntries.size(); ++tries)
 	{
 		if (index < mEntries.size() - 1)
 			++index;

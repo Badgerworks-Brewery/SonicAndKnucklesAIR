@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -172,8 +172,8 @@ function void Boss.ICZ1.GotoState06()
 function void fn071272()
 {
 	A2 = 0xfffffade
-	copyMemory((A2+=8)-8, (A1+=8)-8, 8)
-	u16[A2] = 0
+	copyMemory(A2, A1, 8)
+	u16[A2+8] = 0
 }
 
 
@@ -339,7 +339,7 @@ function void fn0713d2()
 //# address-hook(0x0713e8) end(0x07141a)
 function void fn0713e8()
 {
-	fn085ba8()
+	SetupAsSignpostSpawner()
 
 	A1 = 0xffff0000 + u16[0xfffffaae]
 	if (objA1.update_address == 0x08b660)
@@ -377,10 +377,10 @@ function void fn0713e8()
 function void fn071420()
 {
 	objA0.update_address = 0x071440
-	A1 = 0x0719fa
+
 	A2 = 0xfffffade
-	copyMemory((A2+=8)-8, (A1+=8)-8, 8)
-	u16[A2] = 0
+	copyMemory(A2, 0x0719fa, 8)
+	u16[A2+8] = 0
 	u32[0xfffffada] = addressof(Object.TriggerUnloading)
 }
 
@@ -702,14 +702,14 @@ function void fn071700()
 	D2.u16 += D0.u16
 	objA0.position.x.u16 = level.bossarea.left + D2.u16
 
-	#if STANDALONE
-		if (getScreenWidth() >= 400)
-		{
-			// Spread out slightly, so that right screen border is no dead corner any more
-			//  -> Note: objA0.subtype2c is between 0x00 and 0x0e -- are there 8 snow balls?
-			objA0.position.x.u16 += objA0.subtype2c
-		}
-	#endif
+#if STANDALONE
+	if (getScreenWidth() >= 400)
+	{
+		// Spread out slightly, so that right screen border is no dead corner any more
+		//  -> Note: objA0.subtype2c is between 0x00 and 0x0e -- are there 8 snow balls?
+		objA0.position.x.u16 += objA0.subtype2c
+	}
+#endif
 
 	D0 = (D0 << 16) + (D0 >> 16)
 	D0.u16 = (D0.u16 & 0x07) - 3

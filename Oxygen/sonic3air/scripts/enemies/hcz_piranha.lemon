@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -134,7 +134,7 @@ function void fn088062()
 	objA0.animation.sprite = (global.framecounter & 0x04) ? 2 : 0
 
 	A1 = 0xffff0000 + u16[A0 + 0x44]
-	if (u8[A1 + 0x05] != 0x04 && u8[A1 + 0x20] != char.state.ROLLING && u8[A1 + 0x20] != char.state.SPINDASH)
+	if (u8[A1 + 0x05] != base_state.HURT && u8[A1 + 0x20] != char.state.ROLLING && u8[A1 + 0x20] != char.state.SPINDASH)
 	{
 		fn085838()
 		if (_equal())

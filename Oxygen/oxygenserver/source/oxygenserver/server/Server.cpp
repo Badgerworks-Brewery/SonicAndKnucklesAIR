@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -27,12 +27,12 @@ void Server::runServer()
 
 	// Setup sockets
 	UDPSocket udpSocket;
-	if (!udpSocket.bindToPort(udpPort))
+	if (!udpSocket.bindToPort(udpPort, USE_IPV6))
 		RMX_ERROR("UDP socket bind to port " << udpPort << " failed", return);
 	RMX_LOG_INFO("UDP socket bound to port " << udpPort);
 
 	TCPSocket tcpListenSocket;
-	if (!tcpListenSocket.setupServer(tcpPort))
+	if (!tcpListenSocket.setupServer(tcpPort, USE_IPV6))
 		RMX_ERROR("TCP socket bind to port " << tcpPort << " failed", return);
 	RMX_LOG_INFO("TCP socket bound to port " << tcpPort);
 
@@ -109,7 +109,8 @@ void Server::destroyNetConnection(NetConnection& connection)
 	ServerNetConnection& serverNetConnection = static_cast<ServerNetConnection&>(connection);
 	RMX_LOG_INFO("Removing connection with player ID " << serverNetConnection.getHexPlayerID() << " (now " << (mNetConnectionsByPlayerID.size() - 1) << " total connections)");
 
-	serverNetConnection.unregisterPlayer();
+	mChannels.removePlayerFromAllChannels(serverNetConnection);
+
 	mNetConnectionsByPlayerID.erase(serverNetConnection.getPlayerID());
 	mNetConnectionPool.destroyObject(serverNetConnection);
 }

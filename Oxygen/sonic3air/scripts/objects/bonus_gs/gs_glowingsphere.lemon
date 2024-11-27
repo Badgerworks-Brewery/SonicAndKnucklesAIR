@@ -1,6 +1,6 @@
 /*
 	This script file is part of the Sonic 3 A.I.R. script software distribution.
-	Copyright (C) 2017-2023 by Eukaryot
+	Copyright (C) 2017-2024 by Eukaryot
 
 	Published under the GNU GPLv3 open source software license, see license.txt
 	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -69,7 +69,7 @@ function void fn04a428()
 		return
 	}
 
-	if (debug_mode.state != 0 || u8[A1 + 0x05] >= 0x04)
+	if (debug_mode.state != 0 || u8[A1 + 0x05] >= base_state.HURT)
 	{
 		fn04a4f0()
 		return
@@ -160,8 +160,8 @@ function void fn04a4f6()
 	u8[A2 + 0x02] = 0x1e
 
 	objA1.sprite_priority = 0x0100
-	objA1.hitbox_extends.y = char.hitbox.y.ROLLING
 	objA1.hitbox_extends.x = char.hitbox.x.ROLLING
+	objA1.hitbox_extends.y = char.hitbox.y.ROLLING
 	objA1.state = char.state.ROLLING
 	u8[A1 + 0x27] = 0
 	objA1.flags2a |= (char.flag.IN_AIR | char.flag.ROLLING)
@@ -188,7 +188,7 @@ function void fn04a53a()
 	D2.u16 = objA1.position.y.u16 - objA0.position.y.u16 + 0x38
 	if (D1.u16 < 0x70 && D2.u16 < 0x70)
 	{
-		if (debug_mode.state == 0 && u8[A1 + 0x05] < 0x04 && u8[A1 + 0x2e] == 0)
+		if (debug_mode.state == 0 && u8[A1 + 0x05] < base_state.HURT && u8[A1 + 0x2e] == 0)
 		{
 			D1.u16 -= 0x38
 			D2.u16 -= 0x38

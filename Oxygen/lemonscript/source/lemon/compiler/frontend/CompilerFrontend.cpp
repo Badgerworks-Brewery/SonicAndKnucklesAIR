@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2023 by Eukaryot
+*	Copyright (C) 2017-2024 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -68,12 +68,12 @@ namespace lemon
 	};
 
 
-	CompilerFrontend::CompilerFrontend(Module& module, GlobalsLookup& globalsLookup, CompileOptions& compileOptions, const LineNumberTranslation& lineNumberTranslation, std::vector<FunctionNode*>& functionNodes) :
+	CompilerFrontend::CompilerFrontend(Module& module, GlobalsLookup& globalsLookup, CompileOptions& compileOptions, const LineNumberTranslation& lineNumberTranslation, TokenProcessing& tokenProcessing, std::vector<FunctionNode*>& functionNodes) :
 		mModule(module),
 		mGlobalsLookup(globalsLookup),
 		mCompileOptions(compileOptions),
 		mLineNumberTranslation(lineNumberTranslation),
-		mTokenProcessing(globalsLookup, compileOptions),
+		mTokenProcessing(tokenProcessing),
 		mFunctionNodes(functionNodes)
 	{
 	}
@@ -751,7 +751,7 @@ namespace lemon
 			CHECK_ERROR(isOperator(tokens[1], Operator::COLON), "Expected a colon operator after label", lineNumber);
 
 			LabelNode& node = NodeFactory::create<LabelNode>();
-			node.mLabel = tokens[0].as<LabelToken>().mName;
+			node.mLabel = tokens[0].as<LabelToken>().mName;		// Note that the label includes the '@' character
 			node.setLineNumber(lineNumber);
 			return &node;
 		}
@@ -828,7 +828,7 @@ namespace lemon
 		const uint32 lineNumber = nodesIterator->getLineNumber();
 		const bool isGlobalDefinition = (nullptr == scopeContext);
 		CHECK_ERROR(tokens.size() >= 5, "Syntax error in constant definition", lineNumber);
-		static const uint64 ARRAY_NAME_HASH = rmx::getMurmur2_64(std::string_view("array"));
+		constexpr uint64 ARRAY_NAME_HASH = rmx::constMurmur2_64("array");
 
 		// Check for "constant array"
 		if (isIdentifier(tokens[1], ARRAY_NAME_HASH))
