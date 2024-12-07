@@ -792,8 +792,17 @@ namespace
 
 			if (filename.isValid())
 			{
+				std::wstring outputFilename = String(filename.getString()).toStdWString();
+				const bool containsAnySlash = (outputFilename.find('/') != std::wstring::npos || outputFilename.find('\\') != std::wstring::npos);
+				RMX_CHECK(!containsAnySlash, "The file name passed to debugDumpToFile was '" << filename.getString() << "', which contains a file path. This is not allowed, please use a file name only!", return);
+				RMX_CHECK(rmx::FileIO::isValidFileName(outputFilename), "The file name passed to debugDumpToFile was '" << filename.getString() << "', which contains illegal characters for file names (like \" < > : | ? * )", return);
+
+				outputFilename = Configuration::instance().mAppDataPath + L"output/" + outputFilename;
+
 				const uint8* src = emulatorInterface.getMemoryPointer(startAddress, false, bytes);
-				FTX::FileSystem->saveFile(filename.getString(), src, (size_t)bytes);
+				FTX::FileSystem->saveFile(outputFilename, src, (size_t)bytes);
+
+				LogDisplay::instance().setLogDisplay("Dumped " + std::to_string(bytes) + " bytes of data into file: " + WString(outputFilename).toStdString(), 10.0f);
 			}
 		}
 	}

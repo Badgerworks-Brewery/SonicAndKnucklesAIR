@@ -81,11 +81,13 @@ namespace lemon
 		//  - 0x0f = Smaller optimizations in serialization
 		//  - 0x10 = Opcode JUMP_SWITCH added
 		//  - 0x11 = Serialization of callable function addresses
+		//  - 0x12 = Support for deprecation flags in function alias names
+		//  - 0x13 = Source file info with local paths
 
 		// Signature and version number
 		const uint32 SIGNATURE = *(uint32*)"LMD|";	// "Lemonscript Module"
-		const uint16 MINIMUM_VERSION = 0x10;
-		uint16 version = 0x11;
+		const uint16 MINIMUM_VERSION = 0x13;
+		uint16 version = 0x13;
 
 		if (outerSerializer.isReading())
 		{
@@ -136,17 +138,20 @@ namespace lemon
 			if (serializer.isReading())
 			{
 				std::wstring filename;
+				std::wstring localPath;
 				for (size_t i = 0; i < numberOfSourceFiles; ++i)
 				{
-					serializer.serialize(filename, 1024);
-					module.addSourceFileInfo(L"", filename);
+					serializer.serialize(filename, 255);
+					serializer.serialize(localPath, 255);
+					module.addSourceFileInfo(localPath, filename);
 				}
 			}
 			else
 			{
 				for (const SourceFileInfo* sourceFileInfo : module.mAllSourceFiles)
 				{
-					serializer.write(sourceFileInfo->mFilename, 1024);
+					serializer.write(sourceFileInfo->mFilename, 255);
+					serializer.write(sourceFileInfo->mLocalPath, 255);
 				}
 			}
 		}
@@ -393,7 +398,7 @@ namespace lemon
 		};
 
 		uint32 lastLineNumber = 0;
-		std::vector<FlyweightString> aliasNames;
+		std::vector<Function::AliasName> aliasNames;
 		Function::ParameterList parameters;
 		for (uint32 i = 0; i < numberOfFunctions; ++i)
 		{
@@ -409,8 +414,11 @@ namespace lemon
 				if (flags & FLAG_HAS_ALIAS_NAMES)
 				{
 					aliasNames.resize((size_t)serializer.read<uint8>());
-					for (FlyweightString& aliasName : aliasNames)
-						aliasName.serialize(serializer);
+					for (Function::AliasName& aliasName : aliasNames)
+					{
+						aliasName.mName.serialize(serializer);
+						serializer.serialize(aliasName.mIsDeprecated);
+					}
 				}
 
 				const DataTypeDefinition* returnType = (flags & FLAG_HAS_RETURN_TYPE) ? globalsLookup.readDataType(serializer) : &PredefinedDataTypes::VOID;
@@ -558,8 +566,11 @@ namespace lemon
 				if (flags & FLAG_HAS_ALIAS_NAMES)
 				{
 					serializer.writeAs<uint8>(function.mAliasNames.size());
-					for (const FlyweightString& aliasName : function.mAliasNames)
-						aliasName.write(serializer);
+					for (const Function::AliasName& aliasName : function.mAliasNames)
+					{
+						aliasName.mName.write(serializer);
+						serializer.write(aliasName.mIsDeprecated);
+					}
 				}
 
 				if (flags & FLAG_HAS_RETURN_TYPE)

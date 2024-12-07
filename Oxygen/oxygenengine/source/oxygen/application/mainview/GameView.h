@@ -23,6 +23,14 @@ public:
 		BLURRING		// Showing & incrementally blurring the last rendered image
 	};
 
+	struct DebugVisualizations
+	{
+		int  mDebugOutput = -1;
+		int  mDebugPaletteDisplay = -1;
+		bool mEnabled = false;
+		int  mMode = 0;
+	};
+
 public:
 	GameView(Simulation& simulation);
 	~GameView();
@@ -54,6 +62,10 @@ public:
 
 	void setStillImageMode(StillImageMode mode, float timeout = 0.0f);
 
+	DebugVisualizations& accessDebugVisualizations()  { return mDebugVisualizations; }
+
+	void addScreenHighlightRect(const Recti& rect, const Color& color);
+
 private:
 	void setLogDisplay(const String& string, float time = 2.0f);
 	void setGameSpeed(float speed);
@@ -77,14 +89,13 @@ private:
 
 	StillImage mStillImage;
 
-	int  mDebugOutput = -1;
-	int  mDebugPaletteDisplay = -1;
-	bool mDebugVisualizationsEnabled = false;
-	int  mDebugVisualizationsMode = 0;
-	DrawerTexture mDebugVisualizationsOverlay;
-
 	DrawerTexture mFinalGameTexture;
 
 	float mRewindTimer = 0.0f;
 	int mRewindCounter = 0;
+
+	DebugVisualizations mDebugVisualizations;
+	DrawerTexture mDebugVisualizationsOverlay;
+
+	std::vector<std::pair<Recti, Color>> mScreenHighlightRects;
 };

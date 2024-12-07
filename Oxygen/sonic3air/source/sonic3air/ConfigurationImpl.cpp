@@ -55,9 +55,7 @@ void ConfigurationImpl::preLoadInitialization()
 {
 	SharedDatabase::initialize();
 
-#ifndef ENDUSER
 	mCompiledScriptSavePath = L"saves/scripts.bin";
-#endif
 }
 
 bool ConfigurationImpl::loadConfigurationInternal(JsonHelper& jsonHelper)
@@ -70,11 +68,6 @@ bool ConfigurationImpl::loadConfigurationInternal(JsonHelper& jsonHelper)
 
 	// Setup the default game profile data accordingly
 	fillDefaultGameProfile(GameProfile::instance());
-
-#ifndef ENDUSER
-	// Explicitly set a (non-empty) project path, so that "oxygenproject.json" gets loaded
-	mProjectPath = L"./";
-#endif
 
 	return true;
 }

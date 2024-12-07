@@ -26,8 +26,18 @@ namespace
 
 	bool loadFont(const char* filename, float size, ImFont*& outFont)
 	{
-		RMX_CHECK(FTX::FileSystem->exists(filename), "Could not find font file: '" << filename << "'", return false);
-		outFont = ImGui::GetIO().Fonts->AddFontFromFileTTF(filename, size, nullptr, ImGui::GetIO().Fonts->GetGlyphRangesDefault());
+		outFont = nullptr;
+		std::vector<uint8> content;
+		if (!FTX::FileSystem->readFile(filename, content))
+		{
+			RMX_ERROR("Could not find font file: '" << filename << "'", );
+		}
+		else
+		{
+			uint8* buffer = new uint8[content.size()];
+			memcpy(buffer, &content[0], (int)content.size());
+			outFont = ImGui::GetIO().Fonts->AddFontFromMemoryTTF(buffer, (int)content.size(), size, nullptr, ImGui::GetIO().Fonts->GetGlyphRangesDefault());
+		}
 		return (nullptr != outFont);
 	}
 }
@@ -79,15 +89,21 @@ void ImGuiIntegration::startup()
 			}
 		}
 	}
-	
+
+	ImGui::GetIO().FontGlobalScale = Configuration::instance().mDevMode.mUIScale;
+
 	mRunning = true;
 
 	// Configure default styles
 	loadFont("data/font/ttf/DroidSans.ttf", 15.0f, mDefaultFont);
-	mAccentColor.set(0.2f, 0.5f, 0.8f);
 	refreshImGuiStyle();
 
 	mDevModeMainWindow = new DevModeMainWindow();
+
+#if defined(PLATFORM_ANDROID)
+	// Configure SDL to interpret finger taps as mouse clicks as well for mobile devices
+	SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "1");
+#endif
 }
 
 void ImGuiIntegration::shutdown()
@@ -194,9 +210,10 @@ void ImGuiIntegration::refreshImGuiStyle()
 	style.FrameRounding = 3.0f;
 	style.ItemSpacing.y = 5.0f;
 
+	Color accentColor = Configuration::instance().mDevMode.mUIAccentColor;
 	const auto GetAccentColorMix = [&](float accent, float saturation = 1.0f, float grayValue = 0.3f)
 	{
-		return ImVec4(interpolate(grayValue, mAccentColor.x * accent, saturation), interpolate(grayValue, mAccentColor.y * accent, saturation), interpolate(grayValue, mAccentColor.z * accent, saturation), 1.0f);
+		return ImVec4(interpolate(grayValue, accentColor.x * accent, saturation), interpolate(grayValue, accentColor.y * accent, saturation), interpolate(grayValue, accentColor.z * accent, saturation), 1.0f);
 	};
 
 	style.Colors[ImGuiCol_Text]				= ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
