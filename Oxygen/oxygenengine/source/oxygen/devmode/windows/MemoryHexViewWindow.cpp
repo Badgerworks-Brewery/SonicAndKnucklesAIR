@@ -20,7 +20,7 @@
 
 
 MemoryHexViewWindow::MemoryHexViewWindow() :
-	DevModeWindowBase("Memory Hex View")
+	DevModeWindowBase("Memory Hex View", Category::DEBUGGING, ImGuiWindowFlags_AlwaysAutoResize)
 {
 }
 
@@ -29,10 +29,13 @@ void MemoryHexViewWindow::buildContent()
 	ImGui::SetWindowPos(ImVec2(50.0f, 450.0f), ImGuiCond_FirstUseEver);
 	ImGui::SetWindowSize(ImVec2(520.0f, 270.0f), ImGuiCond_FirstUseEver);
 
+	const float uiScale = ImGui::GetIO().FontGlobalScale;
+
 	CodeExec& codeExec = Application::instance().getSimulation().getCodeExec();
 	EmulatorInterface& emulatorInterface = codeExec.getEmulatorInterface();
 	DebugTracking& debugTracking = codeExec.getDebugTracking();
 
+	ImGui::AlignTextToFramePadding();
 	ImGui::Text("Number of rows:");
 	{
 		#define ADD_ROWS_OPTION(__num__)	\
@@ -60,7 +63,10 @@ void MemoryHexViewWindow::buildContent()
 	ImGui::PopItemFlag();
 
 	ImGui::SameLine();
-	ImGui::InputScalar("Start Address", ImGuiDataType_U32, &mStartAddress, nullptr, nullptr, "%08x", ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsNoBlank);
+	ImGui::AlignTextToFramePadding();
+	ImGui::Text("Start Address:");
+	ImGui::SameLine();
+	ImGui::InputScalar("##StartAddress", ImGuiDataType_U32, &mStartAddress, nullptr, nullptr, "%08x", ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsNoBlank);
 	ImGui::Spacing();
 
 	if (ImGui::BeginTable("Hex View", 17, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_NoSavedSettings))
@@ -74,9 +80,9 @@ void MemoryHexViewWindow::buildContent()
 		const uint32 cellBGColorNormal  = ImGui::GetColorU32(ImVec4(0.0f, 0.0f, 0.0f, 0.5f));
 		const uint32 cellBGColorHovered = ImGui::GetColorU32(ImVec4(0.5f, 0.5f, 0.0f, 0.6f) );
 
-		ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+		ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed, 70.0f * uiScale);
 		for (int column = 1; column <= 16; ++column)
-			ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 15.0f);
+			ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 15.0f * uiScale);
 
 		ImGui::TableNextRow();
 		ImGui::TableSetColumnIndex(0);
@@ -86,9 +92,7 @@ void MemoryHexViewWindow::buildContent()
 		{
 			ImGui::TableSetColumnIndex(column);
 			ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, cellBGColorTitle);
-			static char buffer[8];
-			sprintf(buffer, "%02x", column - 1);
-			ImGui::TextColored(cellColorTitle, buffer);
+			ImGui::TextColored(cellColorTitle, "%02x", column - 1);
 		}
 
 		for (int row = 0; row < mNumRows; ++row)
@@ -145,7 +149,7 @@ void MemoryHexViewWindow::buildContent()
 	}
 	else
 	{
-		if (ImGui::BeginTable("Clicked Address", 3, ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersOuterV | ImGuiTableFlags_NoSavedSettings, ImVec2(360.0f, 0.0f)))
+		if (ImGui::BeginTable("Clicked Address", 3, ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersOuterV | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_SizingStretchProp, ImVec2(300.0f * uiScale, 0.0f)))
 		{
 			for (int size = 0; size < 3; ++size)
 			{

@@ -17,7 +17,7 @@
 
 
 SpriteBrowserWindow::SpriteBrowserWindow() :
-	DevModeWindowBase("Sprite Browser")
+	DevModeWindowBase("Sprite Browser", Category::ASSET_BROWSERS, ImGuiWindowFlags_AlwaysAutoResize)
 {
 }
 
@@ -26,11 +26,13 @@ void SpriteBrowserWindow::buildContent()
 	ImGui::SetWindowPos(ImVec2(350.0f, 10.0f), ImGuiCond_FirstUseEver);
 	ImGui::SetWindowSize(ImVec2(500.0f, 250.0f), ImGuiCond_FirstUseEver);
 
+	const float uiScale = ImGui::GetIO().FontGlobalScale;
+
 	// Refresh list if needed
 	const SpriteCollection& spriteCollection = SpriteCollection::instance();
-	if (mSpriteCollectionChangeCounter != spriteCollection.getGlobalChangeCounter())
+	if (mLastSpriteCollectionChangeCounter != spriteCollection.getGlobalChangeCounter())
 	{
-		mSpriteCollectionChangeCounter = spriteCollection.getGlobalChangeCounter();
+		mLastSpriteCollectionChangeCounter = spriteCollection.getGlobalChangeCounter();
 
 		mSortedItems.clear();
 		for (const auto& pair : spriteCollection.getAllSprites())
@@ -45,23 +47,19 @@ void SpriteBrowserWindow::buildContent()
 		}
 
 		std::sort(mSortedItems.begin(), mSortedItems.end(),
-			[](const SpriteCollection::Item* a, const SpriteCollection::Item* b)
-			{
-				return a->mSourceInfo.mSourceIdentifier < b->mSourceInfo.mSourceIdentifier;
-			}
-		);
+			[](const SpriteCollection::Item* a, const SpriteCollection::Item* b) { return a->mSourceInfo.mSourceIdentifier < b->mSourceInfo.mSourceIdentifier; });
 
 		mPreviewItem = nullptr;
 		mPreviewTexture = Texture();
 	}
 	
 	// TODO: Cache filter results
-	static char filterString[64] = { 0 };
-	ImGui::InputText("Filter", filterString, 64, 0);
+	static ImGuiHelpers::FilterString filterString;
+	filterString.draw();
 
 	const SpriteCollection::Item* clickedItem = nullptr;
 
-	if (ImGui::BeginTable("Sprite Table", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_ScrollY, ImVec2(0.0f, 200.0f)))
+	if (ImGui::BeginTable("Sprite Table", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_ScrollY, ImVec2(0.0f, 200.0f * uiScale)))
 	{
 		ImGui::TableSetupColumn("Identifier");
 		ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed, 75);
@@ -73,7 +71,7 @@ void SpriteBrowserWindow::buildContent()
 
 		for (const SpriteCollection::Item* item : mSortedItems)
 		{
-			if (filterString[0] && item->mSourceInfo.mSourceIdentifier.find(filterString) == std::string::npos)
+			if (!filterString.shouldInclude(item->mSourceInfo.mSourceIdentifier))
 				continue;
 
 			const ImVec4 textColor = (nullptr == item->mSourceInfo.mMod) ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 1.0f, 1.0f, 1.0f);
@@ -131,7 +129,7 @@ void SpriteBrowserWindow::buildContent()
 		}
 		else
 		{
-			const uint64 paletteKey = rmx::getMurmur2_64("@" + mPreviewItem->mSourceInfo.mSourceIdentifier);
+			const uint64 paletteKey = rmx::getMurmur2_64(mPreviewItem->mSourceInfo.mSourceIdentifier);
 			const PaletteBase* palette = PaletteCollection::instance().getPalette(paletteKey, 0);
 			if (nullptr != palette)
 			{
@@ -200,12 +198,14 @@ void SpriteBrowserWindow::buildContent()
 				ImGui::Checkbox("View BMP palette", &mShowPalette);
 				if (mShowPalette)
 				{
-					const uint64 paletteKey = rmx::getMurmur2_64("@" + mPreviewItem->mSourceInfo.mSourceIdentifier);
+					const uint64 paletteKey = rmx::getMurmur2_64(mPreviewItem->mSourceInfo.mSourceIdentifier);
 					const PaletteBase* palette = PaletteCollection::instance().getPalette(paletteKey, 0);
 					if (nullptr != palette)
 					{
+						const ImVec2 colorEntrySize(roundToFloat(12.0f * uiScale), roundToFloat(12.0f * uiScale));
+
 						ImGui::BeginChild("Palette", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY);
-						ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 2));
+						ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(roundToFloat(2.0f * uiScale), roundToFloat(2.0f * uiScale)));
 						ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
 						for (int k = 0; k < (int)palette->getSize(); ++k)
 						{
@@ -213,7 +213,7 @@ void SpriteBrowserWindow::buildContent()
 							if (k & 15)
 								ImGui::SameLine();
 							ImGui::PushID(k);
-							ImGui::ColorButton(*String(0, "Palette color #%d", k), ImVec4(color.r, color.g, color.b, color.a), ImGuiColorEditFlags_NoBorder | ImGuiColorEditFlags_NoLabel, ImVec2(12, 12));
+							ImGui::ColorButton(*String(0, "Palette color #%d", k), ImVec4(color.r, color.g, color.b, color.a), ImGuiColorEditFlags_NoBorder | ImGuiColorEditFlags_NoLabel, colorEntrySize);
 							ImGui::PopID();
 						}
 						ImGui::PopStyleVar(2);

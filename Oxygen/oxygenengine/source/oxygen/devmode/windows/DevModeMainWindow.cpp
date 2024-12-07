@@ -11,25 +11,44 @@
 
 #if defined(SUPPORT_IMGUI)
 
-#include "oxygen/devmode/ImGuiIntegration.h"
 #include "oxygen/devmode/ImGuiHelpers.h"
+#include "oxygen/devmode/windows/AudioBrowserWindow.h"
 #include "oxygen/devmode/windows/GameSimWindow.h"
+#include "oxygen/devmode/windows/GameVisualizationsWindow.h"
 #include "oxygen/devmode/windows/MemoryHexViewWindow.h"
+#include "oxygen/devmode/windows/PaletteBrowserWindow.h"
 #include "oxygen/devmode/windows/PaletteViewWindow.h"
+#include "oxygen/devmode/windows/RenderedGeometryWindow.h"
+#include "oxygen/devmode/windows/ScriptBuildWindow.h"
+#include "oxygen/devmode/windows/SettingsWindow.h"
 #include "oxygen/devmode/windows/SpriteBrowserWindow.h"
 #include "oxygen/devmode/windows/WatchesWindow.h"
 
 
 DevModeMainWindow::DevModeMainWindow() :
-	DevModeWindowBase("Dev Mode (F1)")
+	DevModeWindowBase("Dev Mode (F1)", Category::MISC, ImGuiWindowFlags_AlwaysAutoResize)
 {
 	mIsWindowOpen = true;
 
-	createWindow(mGameSimWindow);
-	createWindow(mMemoryHexViewWindow);
-	createWindow(mWatchesWindow);
-	createWindow(mPaletteViewWindow);
-	createWindow(mSpriteBrowserWindow);
+	// Create windows
+	//  -> Note that the order of creation defines he listing order isnide each categories
+	{
+		createWindow(mGameSimWindow);
+
+		createWindow(mGameVisualizationsWindow);
+		createWindow(mRenderedGeometryWindow);
+		createWindow(mPaletteViewWindow);
+		createWindow(mMemoryHexViewWindow);
+		createWindow(mWatchesWindow);
+
+		createWindow(mScriptBuildWindow);
+
+		createWindow(mAudioBrowserWindow);
+		createWindow(mSpriteBrowserWindow);
+		createWindow(mPaletteBrowserWindow);
+
+		createWindow(mSettingsWindow);
+	}
 }
 
 DevModeMainWindow::~DevModeMainWindow()
@@ -41,6 +60,7 @@ DevModeMainWindow::~DevModeMainWindow()
 bool DevModeMainWindow::buildWindow()
 {
 	const bool result = DevModeWindowBase::buildWindow();
+
 	for (DevModeWindowBase* window : mAllWindows)
 	{
 		window->buildWindow();
@@ -59,45 +79,46 @@ void DevModeMainWindow::buildContent()
 	ImGui::SetWindowSize(ImVec2(150.0f, 200.0f), ImGuiCond_FirstUseEver);
 	ImGui::SetWindowCollapsed(true, ImGuiCond_FirstUseEver);
 
-	for (DevModeWindowBase* window : mAllWindows)
+	const float uiScale = ImGui::GetIO().FontGlobalScale;
+
+	const char* TEXT_BY_CATEGORY[] =
 	{
-		ImGui::Checkbox(window->mTitle.c_str(), &window->mIsWindowOpen);
-	}
+		"Simulation",
+		"Debugging",
+		"Scripts",
+		"Assets",
+		"Misc"
+	};
+	constexpr int NUM_CATEGORIES = (int)DevModeWindowBase::Category::MISC + 1;
+	static_assert(sizeof(TEXT_BY_CATEGORY) / sizeof(const char*) == NUM_CATEGORIES);
 
-#ifdef DEBUG
-	ImGui::Spacing();
-	ImGui::Checkbox("ImGui Demo", &mShowImGuiDemo);
-
-	// Just for debugging
-	//ImGui::Text("ImGui Capture:   %s %s", ImGui::GetIO().WantCaptureMouse ? "[M]" : "      ", ImGui::GetIO().WantCaptureKeyboard ? "[K]" : "");
-#endif
-
-	if (ImGui::CollapsingHeader("Settings", 0))
+	if (ImGui::BeginTable("Table", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp, ImVec2(270 * uiScale, 0)))
 	{
-		ImGuiHelpers::ScopedIndent si;
+		ImGui::TableNextRow();
 
-		Color& accentColor = ImGuiIntegration::getAccentColor();
-		if (ImGui::ColorEdit3("Dev Mode UI Accent Color", accentColor.data, ImGuiColorEditFlags_NoInputs))
+		for (int categoryIndex = 0; categoryIndex < NUM_CATEGORIES; ++categoryIndex)
 		{
-			ImGuiIntegration::refreshImGuiStyle();
+			if (categoryIndex == 0 || categoryIndex == 2)
+				ImGui::TableSetColumnIndex(categoryIndex / 2);
+
+			ImGui::SeparatorText(TEXT_BY_CATEGORY[categoryIndex]);
+			for (DevModeWindowBase* window : mAllWindows)
+			{
+				if (window->mCategory == (DevModeWindowBase::Category)categoryIndex)
+				{
+					ImGui::Checkbox(window->mTitle.c_str(), &window->mIsWindowOpen);
+				}
+			}
 		}
 
-		// TODO: Move this somewhere else
-		if (ImGui::CollapsingHeader("Game View Window", 0))
-		{
-			Configuration& config = Configuration::instance();
-			ImGui::SliderFloat("Size", &config.mDevMode.mGameViewScale, 0.2f, 1.0f);
+	#ifdef DEBUG
+		ImGui::Checkbox("ImGui Demo", &mShowImGuiDemo);
 
-			ImGui::SliderFloat("Alignment X", &config.mDevMode.mGameViewAlignment.x, -1.0f, 1.0f);
-			ImGui::SameLine();
-			if (ImGui::Button("Center##x"))
-				config.mDevMode.mGameViewAlignment.x = 0.0f;
+		// Just for debugging
+		//ImGui::Text("ImGui Capture:   %s %s", ImGui::GetIO().WantCaptureMouse ? "[M]" : "      ", ImGui::GetIO().WantCaptureKeyboard ? "[K]" : "");
+	#endif
 
-			ImGui::SliderFloat("Alignment Y", &config.mDevMode.mGameViewAlignment.y, -1.0f, 1.0f);
-			ImGui::SameLine();
-			if (ImGui::Button("Center##y"))
-				config.mDevMode.mGameViewAlignment.y = 0.0f;
-		}
+		ImGui::EndTable();
 	}
 }
 
