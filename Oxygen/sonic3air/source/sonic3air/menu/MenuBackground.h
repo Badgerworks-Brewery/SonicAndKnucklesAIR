@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -47,14 +47,12 @@ public:
 	void showPreview(bool show, bool useTransition = true);
 
 	void openMainMenu();
-	void openActSelectMenu();
 	void openTimeAttackMenu();
 	void openOptions(bool enteredInGame = false);
 	void openExtras();
 	void openMods();
-	void openGameStartedMenu();
-	void fadeToExit();
 
+	void openGameStartedMenu();
 	void setGameStartedMenu();
 
 private:
@@ -85,11 +83,11 @@ private:
 	// Children
 	std::vector<GameMenuBase*> mAllChildren;
 	MainMenu* mMainMenu = nullptr;
-	ActSelectMenu* mActSelectMenu = nullptr;
 	TimeAttackMenu* mTimeAttackMenu = nullptr;
 	OptionsMenu* mOptionsMenu = nullptr;
 	ExtrasMenu* mExtrasMenu = nullptr;
 	ModsMenu* mModsMenu = nullptr;
+
 	GameMenuBase* mLastOpenedMenu = nullptr;
 	GameMenuBase* mGameStartedMenu = nullptr;
 

@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -318,7 +318,7 @@ void PaletteBitmap::convertToRGBA(Bitmap& output, const uint32* palette, size_t 
 	}
 }
 
-void PaletteBitmap::memcpyRect(uint8* dst, int dwid, uint8* src, int swid, int wid, int hgt)
+void PaletteBitmap::memcpyRect(uint8* dst, int dwid, const uint8* src, int swid, int wid, int hgt)
 {
 	for (int y = 0; y < hgt; ++y)
 	{

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -532,4 +532,16 @@ GameMenuBase::~GameMenuBase()
 void GameMenuBase::update(float timeElapsed)
 {
 	GuiBase::update(timeElapsed);
+}
+
+bool GameMenuBase::updateFadeIn(float timeStep)
+{
+	mVisibility = saturate(mVisibility + timeStep);
+	return (mVisibility >= 1.0f);
+}
+
+bool GameMenuBase::updateFadeOut(float timeStep)
+{
+	mVisibility = saturate(mVisibility - timeStep);
+	return (mVisibility <= 0.0f);
 }

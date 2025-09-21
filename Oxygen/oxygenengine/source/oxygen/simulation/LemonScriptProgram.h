@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -89,7 +89,7 @@ public:
 	lemon::Program& getInternalLemonProgram();
 
 	bool hasValidProgram() const;
-	LoadScriptsResult loadScripts(const std::string& filename, const LoadOptions& loadOptions);
+	LoadScriptsResult loadScripts(std::string_view baseScriptFilename, const LoadOptions& loadOptions);
 
 	const Hook* checkForUpdateHook(bool post);
 	const Hook* checkForAddressHook(uint32 address);
@@ -108,7 +108,16 @@ public:
 	static void resolveLocation(ResolvedLocation& outResolvedLocation, const lemon::Function& function, uint32 programCounter);
 
 private:
-	bool loadScriptModule(lemon::Module& module, lemon::GlobalsLookup& globalsLookup, const std::wstring& filename);
+	enum class LoadingResult
+	{
+		SUCCESS,
+		FAILED_CONTINUE,
+		FAILED_RETRY
+	};
+
+private:
+	LoadingResult loadAllScriptModules(const LoadOptions& loadOptions, std::string_view baseScriptFilename, const std::vector<const Mod*>& modsToLoad);
+	LoadingResult loadScriptModule(lemon::Module& module, lemon::GlobalsLookup& globalsLookup, const std::wstring& filename);
 	void evaluateFunctionPragmas();
 	void evaluateDefines();
 

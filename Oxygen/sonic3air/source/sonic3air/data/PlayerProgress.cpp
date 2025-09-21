@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -9,7 +9,6 @@
 #include "sonic3air/pch.h"
 #include "sonic3air/data/PlayerProgress.h"
 #include "sonic3air/data/SharedDatabase.h"
-#include "sonic3air/version.inc"
 
 #include "oxygen/application/Configuration.h"
 #include "oxygen/simulation/PersistentData.h"
@@ -153,7 +152,7 @@ void PlayerProgress::save(bool force)
 	PersistentData& persistentData = PersistentData::instance();
 
 	// Achievements
-	if (force || mAchievements.isEqual(mSavedAchievements))
+	if (force || !mAchievements.isEqual(mSavedAchievements))
 	{
 		std::vector<uint8> buffer;
 		VectorBinarySerializer serializer(false, buffer);
@@ -164,7 +163,7 @@ void PlayerProgress::save(bool force)
 	}
 
 	// Unlocks
-	if (force || mUnlocks.isEqual(mSavedUnlocks))
+	if (force || !mUnlocks.isEqual(mSavedUnlocks))
 	{
 		std::vector<uint8> buffer;
 		{
@@ -187,7 +186,7 @@ void PlayerProgress::save(bool force)
 bool PlayerProgress::loadLegacy(VectorBinarySerializer& serializer)
 {
 	const uint16 FORMAT_VERSION = 0x0101;		// General player progress file format version
-	const uint32 GAME_VERSION   = BUILD_NUMBER;	// Game build, just to have the information
+	const uint32 GAME_VERSION = EngineMain::getDelegate().getAppMetaData().mBuildVersionNumber;	// Game build, just to have the information
 
 	// Identifier
 	char identifier[9] = "S3AIRPGR";

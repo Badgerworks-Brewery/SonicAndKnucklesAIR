@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -550,7 +550,7 @@ void OpenGLDrawer::performRendering(const DrawCollection& drawCollection)
 					const PaletteBase* palette = PaletteCollection::instance().getPalette(sc.mPaletteKey, 0);
 					if (nullptr == palette)
 						break;
-						
+
 					const OpenGLTexture& paletteTexture = mInternal.mResources.getCustomPaletteTexture(*palette, *palette);
 					mInternal.drawIndexed(targetRect, *texture, paletteTexture, sc.mTintColor);
 				}

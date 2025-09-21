@@ -1,6 +1,6 @@
 ﻿/*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -12,38 +12,44 @@
 #if defined(SUPPORT_IMGUI)
 
 #include "oxygen/application/Application.h"
+#include "oxygen/devmode/ImGuiHelpers.h"
 #include "oxygen/simulation/Simulation.h"
 
 
 GameSimWindow::GameSimWindow() :
-	DevModeWindowBase("Game", Category::GAME_CONTROLS, ImGuiWindowFlags_AlwaysAutoResize)
+	DevModeWindowBase("Game", Category::SIMULATION, ImGuiWindowFlags_AlwaysAutoResize)
 {
 }
 
 void GameSimWindow::buildContent()
 {
-	ImGui::SetWindowPos(ImVec2(250.0f, 10.0f), ImGuiCond_FirstUseEver);
-	//ImGui::SetWindowSize(ImVec2(400.0f, 150.0f), ImGuiCond_FirstUseEver);
+	ImGui::SetWindowPos(ImVec2(300.0f, 5.0f), ImGuiCond_FirstUseEver);
+
+	const float uiScale = getUIScale();
 
 	Simulation& simulation = Application::instance().getSimulation();
 
-	if (simulation.getSpeed() == 0.0f)
+	const bool paused = (simulation.getSpeed() <= 0.0f || simulation.hasStepsLimit());
+	if (paused)
 	{
-		if (ImGui::Button("Play", ImVec2(50, 0)))
+		if (ImGui::Button("Play", ImVec2(50 * uiScale, 0)))
 		{
 			simulation.setSpeed(1.0f);
 		}
 	}
 	else
 	{
-		if (ImGui::Button("Pause", ImVec2(50, 0)))
+		if (ImGui::Button("Pause", ImVec2(50 * uiScale, 0)))
 		{
 			simulation.setSpeed(0.0f);
 		}
 	}
 
 	ImGui::SameLine();
-	ImGui::Text("Game Speed:   %.2fx", simulation.getSpeed());
+	if (paused)
+		ImGui::Text("Paused");
+	else
+		ImGui::Text("Game Speed:   %.2fx", simulation.getSpeed());
 
 	if (ImGui::Button("0.05x"))
 	{
@@ -102,7 +108,7 @@ void GameSimWindow::buildContent()
 	ImGui::SameLine();
 	if (ImGui::ArrowButton("Step Forward", ImGuiDir_Right))
 	{
-		simulation.setNextSingleStep(true, false);
+		simulation.setNextSingleStep();
 	}
 	ImGui::PopItemFlag();
 }

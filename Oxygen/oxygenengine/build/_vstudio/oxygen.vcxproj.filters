@@ -97,6 +97,12 @@
     <Filter Include="devmode\windows">
       <UniqueIdentifier>{fa83976a-22f3-48e0-9249-ec0580c42843}</UniqueIdentifier>
     </Filter>
+    <Filter Include="network">
+      <UniqueIdentifier>{bda58169-9ff3-4e0f-b925-86b7e05a5bba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="network\netplay">
+      <UniqueIdentifier>{4a237758-a433-4d69-ad33-1a130e7d4ea6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\oxygen\helper\BitStream.cpp">
@@ -146,9 +152,6 @@
     </ClCompile>
     <ClCompile Include="..\..\source\oxygen\application\Application.cpp">
       <Filter>application</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\source\oxygen\application\mainview\GameView.cpp">
-      <Filter>application\gameview</Filter>
     </ClCompile>
     <ClCompile Include="..\..\source\oxygen\application\overlays\DebugLogView.cpp">
       <Filter>application\overlays</Filter>
@@ -475,12 +478,6 @@
     <ClCompile Include="..\..\source\oxygen\devmode\ImGuiIntegration.cpp">
       <Filter>devmode</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\source\oxygen\devmode\windows\DevModeMainWindow.cpp">
-      <Filter>devmode\windows</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\source\oxygen\devmode\windows\DevModeWindowBase.cpp">
-      <Filter>devmode\windows</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\source\oxygen\devmode\windows\GameSimWindow.cpp">
       <Filter>devmode\windows</Filter>
     </ClCompile>
@@ -515,6 +512,54 @@
       <Filter>devmode\windows</Filter>
     </ClCompile>
     <ClCompile Include="..\..\source\oxygen\devmode\windows\PaletteBrowserWindow.cpp">
+      <Filter>devmode\windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\helper\JsonSerializer.cpp">
+      <Filter>helper</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\devmode\windows\NetworkingWindow.cpp">
+      <Filter>devmode\windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\network\netplay\NetplayClient.cpp">
+      <Filter>network\netplay</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\network\netplay\NetplayHost.cpp">
+      <Filter>network\netplay</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\network\netplay\NetplayManager.cpp">
+      <Filter>network\netplay</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\network\EngineServerClient.cpp">
+      <Filter>network</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\devmode\DevModeMainWindow.cpp">
+      <Filter>devmode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\devmode\DevModeWindowBase.cpp">
+      <Filter>devmode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\devmode\windows\VRAMWritesWindow.cpp">
+      <Filter>devmode\windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\devmode\windows\CallFramesWindow.cpp">
+      <Filter>devmode\windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\network\netplay\ExternalAddressQuery.cpp">
+      <Filter>network\netplay</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\devmode\windows\DebugLogWindow.cpp">
+      <Filter>devmode\windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\rendering\Renderer.cpp">
+      <Filter>rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\devmode\windows\CustomSidePanelWindow.cpp">
+      <Filter>devmode\windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\application\gameview\GameView.cpp">
+      <Filter>application\gameview</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\oxygen\devmode\windows\PersistentDataWindow.cpp">
       <Filter>devmode\windows</Filter>
     </ClCompile>
   </ItemGroup>
@@ -569,9 +614,6 @@
     </ClInclude>
     <ClInclude Include="..\..\source\oxygen\application\Application.h">
       <Filter>application</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\source\oxygen\application\mainview\GameView.h">
-      <Filter>application\gameview</Filter>
     </ClInclude>
     <ClInclude Include="..\..\source\oxygen\application\overlays\DebugLogView.h">
       <Filter>application\overlays</Filter>
@@ -937,12 +979,6 @@
     <ClInclude Include="..\..\source\oxygen\devmode\ImGuiDefinitions.h">
       <Filter>devmode</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\source\oxygen\devmode\windows\DevModeMainWindow.h">
-      <Filter>devmode\windows</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\source\oxygen\devmode\windows\DevModeWindowBase.h">
-      <Filter>devmode\windows</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\source\oxygen\devmode\windows\GameSimWindow.h">
       <Filter>devmode\windows</Filter>
     </ClInclude>
@@ -974,6 +1010,57 @@
       <Filter>devmode\windows</Filter>
     </ClInclude>
     <ClInclude Include="..\..\source\oxygen\devmode\windows\PaletteBrowserWindow.h">
+      <Filter>devmode\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\helper\JsonSerializer.h">
+      <Filter>helper</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\devmode\windows\NetworkingWindow.h">
+      <Filter>devmode\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\network\netplay\ExternalAddressQuery.h">
+      <Filter>network\netplay</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\network\netplay\NetplayClient.h">
+      <Filter>network\netplay</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\network\netplay\NetplayHost.h">
+      <Filter>network\netplay</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\network\netplay\NetplayManager.h">
+      <Filter>network\netplay</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\network\netplay\NetplayPackets.h">
+      <Filter>network\netplay</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\network\EngineServerClient.h">
+      <Filter>network</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\application\ArgumentsReader.h">
+      <Filter>application</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\devmode\DevModeMainWindow.h">
+      <Filter>devmode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\devmode\DevModeWindowBase.h">
+      <Filter>devmode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\devmode\windows\VRAMWritesWindow.h">
+      <Filter>devmode\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\devmode\windows\CallFramesWindow.h">
+      <Filter>devmode\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\devmode\windows\DebugLogWindow.h">
+      <Filter>devmode\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\devmode\windows\CustomSidePanelWindow.h">
+      <Filter>devmode\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\application\gameview\GameView.h">
+      <Filter>application\gameview</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\oxygen\devmode\windows\PersistentDataWindow.h">
       <Filter>devmode\windows</Filter>
     </ClInclude>
   </ItemGroup>

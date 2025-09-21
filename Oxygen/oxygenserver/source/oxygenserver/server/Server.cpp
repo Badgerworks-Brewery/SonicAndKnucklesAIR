@@ -10,6 +10,7 @@
 #include "oxygenserver/server/Server.h"
 #include "oxygenserver/Configuration.h"
 
+#include "oxygen_netcore/network/ConnectionManager.h"
 #include "oxygen_netcore/network/LagStopwatch.h"
 #include "oxygen_netcore/serverclient/ProtocolVersion.h"
 
@@ -17,6 +18,25 @@
 #include "Shared.h"
 
 #include <thread>
+
+
+namespace
+{
+	void processIP(std::string& ip)
+	{
+		// Localhost
+		if (ip == "::")
+		{
+			ip = "::1";
+		}
+
+		// Return an IPv6-encoded IPv4 address as actual IPv4
+		else if (rmx::startsWith(ip, "::ffff:"))
+		{
+			ip.erase(0, 7);
+		}
+	}
+}
 
 
 void Server::runServer()
@@ -27,12 +47,12 @@ void Server::runServer()
 
 	// Setup sockets
 	UDPSocket udpSocket;
-	if (!udpSocket.bindToPort(udpPort, USE_IPV6))
+	if (!udpSocket.bindToPort(udpPort, SERVER_PROTOCOL_FAMILY))
 		RMX_ERROR("UDP socket bind to port " << udpPort << " failed", return);
 	RMX_LOG_INFO("UDP socket bound to port " << udpPort);
 
 	TCPSocket tcpListenSocket;
-	if (!tcpListenSocket.setupServer(tcpPort, USE_IPV6))
+	if (!tcpListenSocket.setupServer(tcpPort, SERVER_PROTOCOL_FAMILY))
 		RMX_ERROR("TCP socket bind to port " << tcpPort << " failed", return);
 	RMX_LOG_INFO("TCP socket bound to port " << tcpPort);
 
@@ -55,28 +75,21 @@ void Server::runServer()
 	mVirtualDirectory.startup();
 
 	// Prepare timing
-	uint64 lastTimestamp = getCurrentTimestamp();
+	uint64 lastTimestamp = ConnectionManager::getCurrentTimestamp();
 	mLastCleanupTimestamp = lastTimestamp;
 
 	// Run the main loop
-	while (true)
+	mReceivedCloseEvent = false;
+	while (!mReceivedCloseEvent)
 	{
-		const uint64 currentTimestamp = getCurrentTimestamp();
+		const uint64 currentTimestamp = ConnectionManager::getCurrentTimestamp();
 		const uint64 millisecondsElapsed = currentTimestamp - lastTimestamp;
 		lastTimestamp = currentTimestamp;
 
 		// Check for new packets
+		if (!connectionManager.updateConnectionManager())
 		{
-			LAG_STOPWATCH("updateReceivePackets", 2000);
-			if (!updateReceivePackets(connectionManager))
-			{
-				std::this_thread::sleep_for(std::chrono::milliseconds(10));
-			}
-		}
-
-		{
-			LAG_STOPWATCH("updateConnections", 2000);
-			connectionManager.updateConnections(currentTimestamp);
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
 
 		// Perform cleanup regularly
@@ -87,6 +100,9 @@ void Server::runServer()
 			mLastCleanupTimestamp = currentTimestamp;
 		}
 	}
+
+	connectionManager.terminateAllConnections();
+	RMX_LOG_INFO("Server shutdown");
 }
 
 NetConnection* Server::createNetConnection(ConnectionManager& connectionManager, const SocketAddress& senderAddress)
@@ -111,15 +127,52 @@ void Server::destroyNetConnection(NetConnection& connection)
 	RMX_LOG_INFO("Removing connection with player ID " << serverNetConnection.getHexPlayerID() << " (now " << (mNetConnectionsByPlayerID.size() - 1) << " total connections)");
 
 	mChannels.removePlayerFromAllChannels(serverNetConnection);
+	mNetplaySetup.onDestroyConnection(serverNetConnection);
 
 	mNetConnectionsByPlayerID.erase(serverNetConnection.getPlayerID());
 	mNetConnectionPool.destroyObject(serverNetConnection);
+}
+
+bool Server::onReceivedConnectionlessPacket(ConnectionlessPacketEvaluation& evaluation)
+{
+	switch (evaluation.mLowLevelSignature)
+	{
+		case network::GetExternalAddressConnectionless::SIGNATURE:
+		{
+			network::GetExternalAddressConnectionless packet;
+			if (!packet.serializePacket(evaluation.mSerializer, 1))
+				return false;
+
+			if (packet.mPacketVersion == 1)
+			{
+				network::ReplyExternalAddressConnectionless reply;
+				reply.mQueryID = packet.mQueryID;
+				reply.mPacketVersion = packet.mPacketVersion;
+				reply.mIP = evaluation.mSenderAddress.getIP();
+				reply.mPort = evaluation.mSenderAddress.getPort();
+				processIP(reply.mIP);
+				evaluation.mConnectionManager.sendConnectionlessLowLevelPacket(reply, evaluation.mSenderAddress, 0, 0);
+			}
+			else
+			{
+				// Send back an error packet
+				lowlevel::ErrorPacket reply;
+				reply.mErrorCode = lowlevel::ErrorPacket::ErrorCode::UNSUPPORTED_VERSION;
+				evaluation.mConnectionManager.sendConnectionlessLowLevelPacket(reply, evaluation.mSenderAddress, 0, 0);
+			}
+			return true;
+		}
+	}
+
+	return false;
 }
 
 bool Server::onReceivedPacket(ReceivedPacketEvaluation& evaluation)
 {
 	// Go through sub-systems
 	if (mChannels.onReceivedPacket(evaluation))
+		return true;
+	if (mNetplaySetup.onReceivedPacket(evaluation))
 		return true;
 
 	// Failed
@@ -159,6 +212,8 @@ bool Server::onReceivedRequestQuery(ReceivedQueryEvaluation& evaluation)
 
 	// Go through sub-systems
 	if (mChannels.onReceivedRequestQuery(evaluation))
+		return true;
+	if (mNetplaySetup.onReceivedRequestQuery(evaluation))
 		return true;
 	if (mUpdateCheck.onReceivedRequestQuery(evaluation))
 		return true;

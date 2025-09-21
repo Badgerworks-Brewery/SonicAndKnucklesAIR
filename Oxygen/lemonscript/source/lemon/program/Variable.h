@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -9,6 +9,7 @@
 #pragma once
 
 #include "lemon/program/DataType.h"
+#include "lemon/utility/AnyBaseValue.h"
 #include "lemon/utility/FlyweightString.h"
 
 #include <functional>
@@ -74,7 +75,7 @@ namespace lemon
 		// Global variables get accessed via the runtime's global variables list
 
 	public:
-		int64 mInitialValue = 0;
+		AnyBaseValue mInitialValue;
 	};
 
 

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -164,6 +164,7 @@ namespace lemon
 			{
 				if (entry.mArgument == "alias")
 				{
+					// Add alias for this function
 					vectorAdd(mAliasNames).mName = entry.mValue;
 					hadAlias = true;
 				}
@@ -184,7 +185,13 @@ namespace lemon
 				{
 					if (hadAlias)
 					{
+						// Mark alias as deprecated
 						mAliasNames.back().mIsDeprecated = true;
+					}
+					else
+					{
+						// Mark function itself as deprecated
+						mFlags.set(Flag::DEPRECATED);
 					}
 				}
 			}

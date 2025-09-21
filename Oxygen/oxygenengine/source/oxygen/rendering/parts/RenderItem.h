@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -39,7 +39,7 @@ public:
 		CUSTOM_2 = 2,		// Custom usage by scripts
 		OUTSIDE_FRAME = 3,	// Debug output rendered outside of frame simulation
 	};
-	static const uint8 NUM_CONTEXTS = 4;
+	static const uint8 NUM_LIFETIME_CONTEXTS = 4;
 
 public:
 	inline Type getType() const   { return mRenderItemType; }

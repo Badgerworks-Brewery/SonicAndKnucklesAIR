@@ -220,6 +220,9 @@
     <ClInclude Include="..\..\source\rmxbase\bitmap\PaletteBitmap.h">
       <Filter>bitmap</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\rmxbase\data\WeakPtr.h">
+      <Filter>data</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\rmxbase\rmxbase.cpp" />
@@ -322,10 +325,16 @@
     <ClCompile Include="..\..\source\rmxbase\bitmap\PaletteBitmap.cpp">
       <Filter>bitmap</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\source\rmxbase\data\WeakPtr.cpp">
+      <Filter>data</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\source\rmxbase\_jsoncpp\json_valueiterator.inl">
       <Filter>_jsoncpp</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="librmx.natvis" />
   </ItemGroup>
 </Project>

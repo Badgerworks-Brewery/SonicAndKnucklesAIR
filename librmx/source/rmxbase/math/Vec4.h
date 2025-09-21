@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2024 by Eukaryot
+*	Copyright (C) 2008-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -39,7 +39,9 @@ public:
 
 	Vec4(const Vec3<TYPE>& source, TYPE w_)
 	{
-		FORi(data[i] = source.data[i]); w = w_;
+		for (int i = 0; i < 3; ++i)
+			data[i] = source.data[i];
+		w = w_;
 	}
 
 	template<typename T> explicit Vec4(const Vec4<T>& source)
@@ -187,7 +189,8 @@ public:
 				}
 			}
 		}
-		FORi(data[i] = tmp[i]);
+		for (int i = 0; i < 3; ++i)
+			data[i] = tmp[i];
 	}
 
 	void rotate(TYPE angle, int axis)

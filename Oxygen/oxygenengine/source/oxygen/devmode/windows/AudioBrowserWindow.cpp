@@ -1,6 +1,6 @@
 ﻿/*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -17,7 +17,7 @@
 
 
 AudioBrowserWindow::AudioBrowserWindow() :
-	DevModeWindowBase("Audio Browser", Category::ASSET_BROWSERS, ImGuiWindowFlags_AlwaysAutoResize)
+	DevModeWindowBase("Audio Browser", Category::MISC, ImGuiWindowFlags_AlwaysAutoResize)
 {
 }
 
@@ -26,10 +26,22 @@ void AudioBrowserWindow::buildContent()
 	ImGui::SetWindowPos(ImVec2(350.0f, 10.0f), ImGuiCond_FirstUseEver);
 	ImGui::SetWindowSize(ImVec2(500.0f, 250.0f), ImGuiCond_FirstUseEver);
 
-	const float uiScale = ImGui::GetIO().FontGlobalScale;
+	const float uiScale = getUIScale();
 
 	AudioOutBase& audioOut = EngineMain::instance().getAudioOut();
 	AudioCollection& audioCollection = AudioCollection::instance();
+
+	ImGui::SliderFloat("Master Volume", &Configuration::instance().mAudioVolume, 0.0f, 1.0f, "%.2f");
+
+	if (ImGui::Button("Reload Modded Audio"))
+	{
+		mPlayingAudio.stop();
+		audioOut.reloadAudioCollection();
+	}
+
+	ImGui::Spacing();
+	ImGui::Separator();
+	ImGui::Spacing();
 
 	// Refresh if there's any changes
 	if (mLastAudioCollectionChangeCounter != audioCollection.getChangeCounter())
@@ -46,9 +58,6 @@ void AudioBrowserWindow::buildContent()
 
 		mLastAudioCollectionChangeCounter = audioCollection.getChangeCounter();
 	}
-	
-	ImGui::SliderFloat("Master Volume", &Configuration::instance().mAudioVolume, 0.0f, 1.0f, "%.2f");
-	ImGui::Spacing();
 
 	// TODO: Cache filter results
 	static ImGuiHelpers::FilterString filterString;
@@ -94,7 +103,7 @@ void AudioBrowserWindow::buildContent()
 					const bool isSound = (audioDefinition->mType != AudioCollection::AudioDefinition::Type::SOUND);
 					if (!isSound)
 					{
-						audioOut.stopChannel(0);
+						audioOut.getAudioPlayer().stopAllSoundsByChannel(0);
 					}
 
 					//mPlayingAudio = ...

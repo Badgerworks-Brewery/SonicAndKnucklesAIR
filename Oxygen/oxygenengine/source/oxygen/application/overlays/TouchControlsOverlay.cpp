@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -13,6 +13,8 @@
 #include "oxygen/helper/FileHelper.h"
 #include "oxygen/rendering/utils/RenderUtils.h"
 #include "oxygen/resources/SpriteCollection.h"
+#include "oxygen/simulation/GameRecorder.h"
+#include "oxygen/simulation/Simulation.h"
 
 
 namespace
@@ -212,8 +214,8 @@ void TouchControlsOverlay::render()
 		drawer.setSamplingMode(SamplingMode::BILINEAR);
 		for (VisualElement& visualElement : mVisualElements)
 		{
-			// Skip game rec button is game recording is disabled
-			if (visualElement.mReactToState == ConfigMode::State::MOVING_GAMEREC && !Configuration::instance().mGameRecorder.mIsRecording)
+			// Skip game rec button if game recording is disabled
+			if (visualElement.mReactToState == ConfigMode::State::MOVING_GAMEREC && !Application::instance().getSimulation().getGameRecorder().isRecording())
 				continue;
 
 			const bool pressed = (nullptr == visualElement.mControl) ? false : visualElement.mControl->isPressed();

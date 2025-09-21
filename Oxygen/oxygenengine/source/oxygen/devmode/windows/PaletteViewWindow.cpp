@@ -1,6 +1,6 @@
 ﻿/*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -18,13 +18,13 @@
 
 
 PaletteViewWindow::PaletteViewWindow() :
-	DevModeWindowBase("Palette View", Category::DEBUGGING, ImGuiWindowFlags_AlwaysAutoResize)
+	DevModeWindowBase("Palette View", Category::GRAPHICS, ImGuiWindowFlags_AlwaysAutoResize)
 {
 }
 
 void PaletteViewWindow::buildContent()
 {
-	ImGui::SetWindowPos(ImVec2(350.0f, 10.0f), ImGuiCond_FirstUseEver);
+	ImGui::SetWindowPos(ImVec2(5.0f, 180.0f), ImGuiCond_FirstUseEver);
 	ImGui::SetWindowSize(ImVec2(500.0f, 250.0f), ImGuiCond_FirstUseEver);
 
 	const PaletteManager& paletteManager = RenderParts::instance().getPaletteManager();
@@ -32,7 +32,7 @@ void PaletteViewWindow::buildContent()
 	if (ImGui::CollapsingHeader("Options"))
 	{
 		ImGui::Checkbox("Show secondary", &mShowSecondary);
-		
+
 		if (ImGui::Button("Save palette as BMP"))
 		{
 			const std::wstring filepath = Configuration::instance().mAppDataPath + L"devmode/output/main_palette.bmp";
@@ -66,7 +66,7 @@ void PaletteViewWindow::buildContent()
 
 void PaletteViewWindow::drawPalette(const PaletteBase& palette)
 {
-	const float uiScale = ImGui::GetIO().FontGlobalScale;
+	const float uiScale = getUIScale();
 	const ImVec2 colorEntrySize(roundToFloat(14.0f * uiScale), roundToFloat(14.0f * uiScale));
 
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(roundToFloat(2.0f * uiScale), roundToFloat(2.0f * uiScale)));

@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2024 by Eukaryot
+*	Copyright (C) 2008-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -329,13 +329,13 @@ void VectorBinarySerializer::write(std::wstring_view value, size_t stringLengthL
 	else
 	{
 		// Write as UTF-8 string
-		const size_t encodedLength = rmx::UTF8Conversion::getLengthAsUTF8(value);
+		size_t encodedLength = rmx::UTF8Conversion::getLengthAsUTF8(value);
 		writeSize(encodedLength, stringLengthLimit);
 
 		char* pointer = (char*)writeAccess(encodedLength);
 		for (wchar_t ch : value)
 		{
-			const size_t encodedLength = rmx::UTF8Conversion::writeCharacterAsUTF8((uint32)ch, pointer);
+			encodedLength = rmx::UTF8Conversion::writeCharacterAsUTF8((uint32)ch, pointer);
 			pointer += encodedLength;
 		}
 	}

@@ -1,6 +1,6 @@
 ﻿/*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -17,16 +17,16 @@
 
 
 SpriteBrowserWindow::SpriteBrowserWindow() :
-	DevModeWindowBase("Sprite Browser", Category::ASSET_BROWSERS, ImGuiWindowFlags_AlwaysAutoResize)
+	DevModeWindowBase("Sprite Browser", Category::GRAPHICS, ImGuiWindowFlags_AlwaysAutoResize)
 {
 }
 
 void SpriteBrowserWindow::buildContent()
 {
-	ImGui::SetWindowPos(ImVec2(350.0f, 10.0f), ImGuiCond_FirstUseEver);
+	ImGui::SetWindowPos(ImVec2(640.0f, 60.0f), ImGuiCond_FirstUseEver);
 	ImGui::SetWindowSize(ImVec2(500.0f, 250.0f), ImGuiCond_FirstUseEver);
 
-	const float uiScale = ImGui::GetIO().FontGlobalScale;
+	const float uiScale = getUIScale();
 
 	// Refresh list if needed
 	const SpriteCollection& spriteCollection = SpriteCollection::instance();
@@ -52,7 +52,7 @@ void SpriteBrowserWindow::buildContent()
 		mPreviewItem = nullptr;
 		mPreviewTexture = Texture();
 	}
-	
+
 	// TODO: Cache filter results
 	static ImGuiHelpers::FilterString filterString;
 	filterString.draw();
@@ -74,12 +74,12 @@ void SpriteBrowserWindow::buildContent()
 			if (!filterString.shouldInclude(item->mSourceInfo.mSourceIdentifier))
 				continue;
 
-			const ImVec4 textColor = (nullptr == item->mSourceInfo.mMod) ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 1.0f, 1.0f, 1.0f);
+			const ImVec4 textColor = (nullptr == item->mSourceInfo.mMod) ? ImGuiHelpers::COLOR_WHITE : ImGuiHelpers::COLOR_LIGHT_CYAN;
 
 			ImGui::PushID(item);
 
 			ImGui::TableNextRow();
-			
+
 			ImGui::TableSetColumnIndex(0);
 			ImGui::TextColored(textColor, "%s", item->mSourceInfo.mSourceIdentifier.c_str());
 

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -218,101 +218,10 @@ namespace lemon
 
 	void TokenProcessing::castCompileTimeConstant(ConstantToken& constantToken, const DataTypeDefinition* targetDataType)
 	{
-		const TypeCasting::CastHandling castHandling = TypeCasting(mCompileOptions).getCastHandling(constantToken.mDataType, targetDataType, false);
-		switch (castHandling.mResult)
-		{
-			case TypeCasting::CastHandling::Result::NO_CAST:
-			{
-				// No cast needed
-				break;
-			}
-
-			case TypeCasting::CastHandling::Result::BASE_CAST:
-			{
-				switch (castHandling.mBaseCastType)
-				{
-					// Cast down (signed or unsigned makes no difference here)
-					case BaseCastType::INT_16_TO_8:  constantToken.mValue.cast<uint16, uint8 >();  break;
-					case BaseCastType::INT_32_TO_8:  constantToken.mValue.cast<uint32, uint8 >();  break;
-					case BaseCastType::INT_64_TO_8:  constantToken.mValue.cast<uint64, uint8 >();  break;
-					case BaseCastType::INT_32_TO_16: constantToken.mValue.cast<uint32, uint16>();  break;
-					case BaseCastType::INT_64_TO_16: constantToken.mValue.cast<uint64, uint16>();  break;
-					case BaseCastType::INT_64_TO_32: constantToken.mValue.cast<uint64, uint32>();  break;
-
-					// Cast up (value is unsigned -> adding zeroes)
-					case BaseCastType::UINT_8_TO_16:  constantToken.mValue.cast<uint8,  uint16>();  break;
-					case BaseCastType::UINT_8_TO_32:  constantToken.mValue.cast<uint8,  uint32>();  break;
-					case BaseCastType::UINT_8_TO_64:  constantToken.mValue.cast<uint8,  uint64>();  break;
-					case BaseCastType::UINT_16_TO_32: constantToken.mValue.cast<uint16, uint32>();  break;
-					case BaseCastType::UINT_16_TO_64: constantToken.mValue.cast<uint16, uint64>();  break;
-					case BaseCastType::UINT_32_TO_64: constantToken.mValue.cast<uint32, uint64>();  break;
-
-					// Cast up (value is signed -> adding highest bit)
-					case BaseCastType::SINT_8_TO_16:  constantToken.mValue.cast<int8,  int16>();  break;
-					case BaseCastType::SINT_8_TO_32:  constantToken.mValue.cast<int8,  int32>();  break;
-					case BaseCastType::SINT_8_TO_64:  constantToken.mValue.cast<int8,  int64>();  break;
-					case BaseCastType::SINT_16_TO_32: constantToken.mValue.cast<int16, int32>();  break;
-					case BaseCastType::SINT_16_TO_64: constantToken.mValue.cast<int16, int64>();  break;
-					case BaseCastType::SINT_32_TO_64: constantToken.mValue.cast<int32, int64>();  break;
-
-					// Integer cast to float
-					case BaseCastType::UINT_8_TO_FLOAT:   constantToken.mValue.cast<uint8,  float>();  break;
-					case BaseCastType::UINT_16_TO_FLOAT:  constantToken.mValue.cast<uint16, float>();  break;
-					case BaseCastType::UINT_32_TO_FLOAT:  constantToken.mValue.cast<uint32, float>();  break;
-					case BaseCastType::UINT_64_TO_FLOAT:  constantToken.mValue.cast<uint64, float>();  break;
-					case BaseCastType::SINT_8_TO_FLOAT:   constantToken.mValue.cast<int8,   float>();  break;
-					case BaseCastType::SINT_16_TO_FLOAT:  constantToken.mValue.cast<int16,  float>();  break;
-					case BaseCastType::SINT_32_TO_FLOAT:  constantToken.mValue.cast<int32,  float>();  break;
-					case BaseCastType::SINT_64_TO_FLOAT:  constantToken.mValue.cast<int64,  float>();  break;
-
-					case BaseCastType::UINT_8_TO_DOUBLE:  constantToken.mValue.cast<uint8,  double>();  break;
-					case BaseCastType::UINT_16_TO_DOUBLE: constantToken.mValue.cast<uint16, double>();  break;
-					case BaseCastType::UINT_32_TO_DOUBLE: constantToken.mValue.cast<uint32, double>();  break;
-					case BaseCastType::UINT_64_TO_DOUBLE: constantToken.mValue.cast<uint64, double>();  break;
-					case BaseCastType::SINT_8_TO_DOUBLE:  constantToken.mValue.cast<int8,   double>();  break;
-					case BaseCastType::SINT_16_TO_DOUBLE: constantToken.mValue.cast<int16,  double>();  break;
-					case BaseCastType::SINT_32_TO_DOUBLE: constantToken.mValue.cast<int32,  double>();  break;
-					case BaseCastType::SINT_64_TO_DOUBLE: constantToken.mValue.cast<int64,  double>();  break;
-
-					// Float cast to integer
-					case BaseCastType::FLOAT_TO_UINT_8:   constantToken.mValue.cast<float, uint8 >();  break;
-					case BaseCastType::FLOAT_TO_UINT_16:  constantToken.mValue.cast<float, uint16>();  break;
-					case BaseCastType::FLOAT_TO_UINT_32:  constantToken.mValue.cast<float, uint32>();  break;
-					case BaseCastType::FLOAT_TO_UINT_64:  constantToken.mValue.cast<float, uint64>();  break;
-					case BaseCastType::FLOAT_TO_SINT_8:   constantToken.mValue.cast<float, int8  >();  break;
-					case BaseCastType::FLOAT_TO_SINT_16:  constantToken.mValue.cast<float, int16 >();  break;
-					case BaseCastType::FLOAT_TO_SINT_32:  constantToken.mValue.cast<float, int32 >();  break;
-					case BaseCastType::FLOAT_TO_SINT_64:  constantToken.mValue.cast<float, int64 >();  break;
-
-					case BaseCastType::DOUBLE_TO_UINT_8:  constantToken.mValue.cast<double, uint8 >();  break;
-					case BaseCastType::DOUBLE_TO_UINT_16: constantToken.mValue.cast<double, uint16>();  break;
-					case BaseCastType::DOUBLE_TO_UINT_32: constantToken.mValue.cast<double, uint32>();  break;
-					case BaseCastType::DOUBLE_TO_UINT_64: constantToken.mValue.cast<double, uint64>();  break;
-					case BaseCastType::DOUBLE_TO_SINT_8:  constantToken.mValue.cast<double, int8  >();  break;
-					case BaseCastType::DOUBLE_TO_SINT_16: constantToken.mValue.cast<double, int16 >();  break;
-					case BaseCastType::DOUBLE_TO_SINT_32: constantToken.mValue.cast<double, int32 >();  break;
-					case BaseCastType::DOUBLE_TO_SINT_64: constantToken.mValue.cast<double, int64 >();  break;
-
-					// Float cast
-					case BaseCastType::FLOAT_TO_DOUBLE:   constantToken.mValue.cast<float, double>();  break;
-					case BaseCastType::DOUBLE_TO_FLOAT:   constantToken.mValue.cast<double, float>();  break;
-
-					default:
-						throw std::runtime_error("Unrecognized cast type");
-				}
-				break;
-			}
-
-			case TypeCasting::CastHandling::Result::ANY_CAST:
-			{
-				// Anything to do here...?
-				break;
-			}
-
-			default:
-			case TypeCasting::CastHandling::Result::INVALID:
-				CHECK_ERROR(false, "Invalid cast of constants", mLineNumber);
-		}
+		AnyBaseValue value;
+		const TypeCasting::CastHandling castHandling = TypeCasting(mCompileOptions).castBaseValue(constantToken.mValue, constantToken.mDataType, value, targetDataType);
+		CHECK_ERROR(castHandling.mResult != TypeCasting::CastHandling::Result::INVALID, "Invalid cast of constants", mLineNumber);
+		constantToken.mValue = value;
 	}
 
 	void TokenProcessing::processDefines(TokenList& tokens)
@@ -509,8 +418,8 @@ namespace lemon
 					break;
 				}
 
-                default:
-                    break;
+				default:
+					break;
 			}
 		}
 
@@ -805,7 +714,10 @@ namespace lemon
 							function = bestFit->mFunction;
 							if (bestFit->mIsDeprecated)
 							{
-								ADD_WARNING(CompilerWarning::Code::DEPRECATED_FUNCTION_ALIAS, "Function name '" << identifierToken.mName << "' is deprecated, consider using the new name '" << function->getName() << "' instead", mLineNumber);
+								if (identifierToken.mName == function->getName())
+									ADD_WARNING(CompilerWarning::Code::DEPRECATED_FUNCTION, "Function '" << identifierToken.mName << "' is deprecated and might be removed in the future", mLineNumber)
+								else
+									ADD_WARNING(CompilerWarning::Code::DEPRECATED_FUNCTION_ALIAS, "Function name '" << identifierToken.mName << "' is deprecated, consider using the new name '" << function->getName() << "' instead", mLineNumber);
 							}
 						}
 					}
@@ -851,52 +763,87 @@ namespace lemon
 			{
 				// Check the identifier
 				IdentifierToken& identifierToken = tokens[i].as<IdentifierToken>();
+
+				// Could be a constant array, or a variable with bracket operator
 				const ConstantArray* constantArray = nullptr;
-				if (nullptr != identifierToken.mResolved && identifierToken.mResolved->getType() == GlobalsLookup::Identifier::Type::CONSTANT_ARRAY)
+				const Variable* variable = nullptr;
+				if (nullptr != identifierToken.mResolved)
 				{
-					constantArray = &identifierToken.mResolved->as<ConstantArray>();
+					if (identifierToken.mResolved->getType() == GlobalsLookup::Identifier::Type::CONSTANT_ARRAY)
+					{
+						constantArray = &identifierToken.mResolved->as<ConstantArray>();
+					}
+					else if (identifierToken.mResolved->getType() == GlobalsLookup::Identifier::Type::VARIABLE)
+					{
+						variable = &identifierToken.mResolved->as<Variable>();
+					}
 				}
-				else
+
+				if (nullptr == constantArray && nullptr == variable)
 				{
 					// Check for local constant array
 					constantArray = findInList(*mContext.mLocalConstantArrays, identifierToken.mName.getHash());
-					CHECK_ERROR(nullptr != constantArray, "Unable to resolve identifier: " << identifierToken.mName.getString(), mLineNumber);
+					if (nullptr == constantArray)
+					{
+						// Check for local variables
+						variable = findInList(*mContext.mLocalVariables, identifierToken.mName.getHash());
+						CHECK_ERROR(nullptr != variable, "Unable to resolve identifier: " << identifierToken.mName.getString(), mLineNumber);
+					}
+				}
+
+				if (nullptr != variable)
+				{
+					// Check if variable's data type supports the bracket operator
+					const DataTypeDefinition* parameterType = variable->getDataType()->getBracketOperator().mParameterType;
+					CHECK_ERROR(nullptr != parameterType, "Variable " << variable->getName().getString() << " can't be followed by the brackets []", mLineNumber);
 				}
 
 				TokenList& content = tokens[i+1].as<ParenthesisToken>().mContent;
 				CHECK_ERROR(content.size() == 1, "Expected exactly one token inside brackets", mLineNumber);
 				CHECK_ERROR(content[0].isStatement(), "Expected statement token inside brackets", mLineNumber);
 
-				const Function* matchingFunction = nullptr;
-				for (const Function* function : mBuiltinConstantArrayAccess.mFunctions)
+				if (nullptr != constantArray)
 				{
-					if (function->getReturnType() == constantArray->getElementDataType())
+					const Function* matchingFunction = nullptr;
+					for (const Function* function : mBuiltinConstantArrayAccess.mFunctions)
 					{
-						matchingFunction = function;
-						break;
+						if (function->getReturnType() == constantArray->getElementDataType())
+						{
+							matchingFunction = function;
+							break;
+						}
 					}
+					CHECK_ERROR(nullptr != matchingFunction, "Could not find fitting type implementation for constant array " << identifierToken.mName.getString(), mLineNumber);
+
+				#ifdef DEBUG
+					const Function::ParameterList& parameterList = matchingFunction->getParameters();
+					RMX_ASSERT(parameterList.size() == 2 && parameterList[0].mDataType == &PredefinedDataTypes::UINT_32 && parameterList[1].mDataType == &PredefinedDataTypes::UINT_32, "Function signature for constant array access does not fit");
+				#endif
+
+					FunctionToken& token = tokens.createReplaceAt<FunctionToken>(i);
+					token.mFunction = matchingFunction;
+					token.mParameters.resize(2);
+					ConstantToken& idToken = token.mParameters[0].create<ConstantToken>();
+					idToken.mValue.set(constantArray->getID());
+					idToken.mDataType = &PredefinedDataTypes::UINT_32;
+					token.mParameters[1] = content[0].as<StatementToken>();		// Array index
+					token.mDataType = matchingFunction->getReturnType();
+
+					assignStatementDataType(*token.mParameters[0], matchingFunction->getParameters()[0].mDataType);
+					assignStatementDataType(*token.mParameters[1], matchingFunction->getParameters()[1].mDataType);
 				}
-				if (nullptr == matchingFunction)
-					continue;
+				else
+				{
+					RMX_ASSERT(nullptr != variable, "Variable must be valid at this point");
 
-			#ifdef DEBUG
-				const Function::ParameterList& parameterList = matchingFunction->getParameters();
-				RMX_ASSERT(parameterList.size() == 2 && parameterList[0].mDataType == &PredefinedDataTypes::UINT_32 && parameterList[1].mDataType == &PredefinedDataTypes::UINT_32, "Function signature for constant array access does not fit");
-			#endif
+					BracketAccessToken& token = tokens.createReplaceAt<BracketAccessToken>(i);
+					token.mVariable = variable;
+					token.mParameter = content[0].as<StatementToken>();
+					token.mDataType = variable->getDataType()->getBracketOperator().mValueType;
 
-				FunctionToken& token = tokens.createReplaceAt<FunctionToken>(i);
-				token.mFunction = matchingFunction;
-				token.mParameters.resize(2);
-				ConstantToken& idToken = token.mParameters[0].create<ConstantToken>();
-				idToken.mValue.set(constantArray->getID());
-				idToken.mDataType = &PredefinedDataTypes::UINT_32;
-				token.mParameters[1] = content[0].as<StatementToken>();		// Array index
-				token.mDataType = matchingFunction->getReturnType();
+				}
 
-				assignStatementDataType(*token.mParameters[0], matchingFunction->getParameters()[0].mDataType);
-				assignStatementDataType(*token.mParameters[1], matchingFunction->getParameters()[1].mDataType);
-
-				tokens.erase(i+1);
+				tokens.erase(i+1);	// Remove parenthesis token
 			}
 		}
 	}

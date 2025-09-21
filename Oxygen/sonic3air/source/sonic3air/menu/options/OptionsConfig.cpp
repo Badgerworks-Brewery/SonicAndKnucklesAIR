@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -488,7 +488,7 @@ void OptionsConfig::buildControls()
 	{
 		configBuilder.addSetting("Setup Keyboard & Game Controllers...", option::CONTROLLER_SETUP);		// This text here won't be used, see rendering
 
-		for (int k = 0; k < 2; ++k)
+		for (int k = 0; k < InputManager::NUM_PLAYERS; ++k)
 		{
 			configBuilder.addSetting(*String(0, "Controller Player %d", k+1), (option::Option)(option::CONTROLLER_PLAYER_1 + k));
 			if (Application::instance().hasVirtualGamepad())
@@ -501,7 +501,9 @@ void OptionsConfig::buildControls()
 		configBuilder.addSetting("Other controllers", option::CONTROLLER_AUTOASSIGN)
 			.addOption("Not used", -1)
 			.addOption("Assign to Player 1", 0)
-			.addOption("Assign to Player 2", 1);
+			.addOption("Assign to Player 2", 1)
+			.addOption("Assign to Player 3", 2)
+			.addOption("Assign to Player 4", 3);
 	}
 
 	if (Application::instance().hasVirtualGamepad())
@@ -517,7 +519,7 @@ void OptionsConfig::buildControls()
 
 	CATEGORY("Controller Rumble")
 	{
-		for (int k = 0; k < 2; ++k)
+		for (int k = 0; k < InputManager::NUM_PLAYERS; ++k)
 		{
 			configBuilder.addSetting(*String(0, "Rumble Player %d", k+1), (option::Option)(option::CONTROLLER_RUMBLE_P1 + k));
 			configBuilder.addOption("Off", 0);
@@ -622,6 +624,10 @@ void OptionsConfig::buildTweaks()
 		configBuilder.addSetting("Monitor Behavior:", option::MONITOR_BEHAVIOR)
 			.addOption("Default", 0)
 			.addOption("Fall down when hit", 1);
+
+		configBuilder.addSetting("Hidden Monitors:", option::HIDDEN_MONITOR_HINT)
+			.addOption("No hint", 0)
+			.addOption("Sparkle near signpost", 1);
 	}
 
 	CATEGORY("Special Stages")
@@ -648,6 +654,45 @@ void OptionsConfig::buildTweaks()
 			.addOption("No glitch fixes", 0)
 			.addOption("Only basic fixes", 1)
 			.addOption("All (recommended)", 2);
+	}
+
+	CATEGORY("Other Enhancements")
+	{
+		configBuilder.addSetting("Object Pushing Speed:", option::FASTER_PUSH)
+			.addOption("Original", 0)
+			.addOption("Faster", 1);
+
+		configBuilder.addSetting("Score Tally Speed-Up:", option::LEVELRESULT_SCORE)
+			.addOption("Off", 0)
+			.addOption("On", 1);
+
+		configBuilder.addSetting("LBZ Tube Transport:", option::LBZ_TUBETRANSPORT)
+			.addOption("Original Speed", 0)
+			.addOption("Faster", 1);
+
+		configBuilder.addSetting("MHZ Elevator:", option::MHZ_ELEVATOR)
+			.addOption("Original Speed", 0)
+			.addOption("Faster", 1);
+
+		configBuilder.addSetting("FBZ Door Opening:", option::FBZ_SCREWDOORS)
+			.addOption("Original Speed", 0)
+			.addOption("Faster", 1);
+
+		configBuilder.addSetting("SOZ Pyramid Rising:", option::SOZ_PYRAMID)
+			.addOption("Original Speed", 0)
+			.addOption("Faster", 1);
+
+		configBuilder.addSetting("AIZ Knuckles Intro:", option::AIZ_INTRO_KNUCKLES)
+			.addOption("Off", 0)
+			.addOption("On", 1);
+
+		configBuilder.addSetting("FBZ Cylinder Behavior:", option::FBZ_ENTERCYLINDER)
+			.addOption("Original", 0)
+			.addOption("Can enter from top", 1);
+
+		configBuilder.addSetting("Offscreen Player 2:", option::PLAYER2_OFFSCREEN)
+			.addOption("Not shown", 0)
+			.addOption("Show at border", 1);
 	}
 }
 

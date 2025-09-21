@@ -1,6 +1,6 @@
 ﻿/*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -15,12 +15,38 @@
 namespace ImGuiHelpers
 {
 
+	static const ImVec4 COLOR_WHITE		  (1.0f, 1.0f, 1.0f, 1.0f);
+	static const ImVec4 COLOR_GRAY80	  (0.8f, 0.8f, 0.8f, 1.0f);
+	static const ImVec4 COLOR_GRAY60	  (0.6f, 0.6f, 0.6f, 1.0f);
+	static const ImVec4 COLOR_GRAY40	  (0.4f, 0.4f, 0.4f, 1.0f);
+	static const ImVec4 COLOR_GRAY30	  (0.3f, 0.3f, 0.3f, 1.0f);
+	static const ImVec4 COLOR_BLACK		  (0.0f, 0.0f, 0.0f, 1.0f);
+	static const ImVec4 COLOR_TRANSPARENT (0.0f, 0.0f, 0.0f, 0.0f);
+
+	static const ImVec4 COLOR_RED		  (1.0f, 0.0f, 0.0f, 1.0f);
+	static const ImVec4 COLOR_YELLOW	  (1.0f, 1.0f, 0.0f, 1.0f);
+	static const ImVec4 COLOR_LIGHT_YELLOW(1.0f, 1.0f, 0.5f, 1.0f);
+	static const ImVec4 COLOR_GREEN		  (0.0f, 1.0f, 0.0f, 1.0f);
+	static const ImVec4 COLOR_CYAN		  (0.0f, 1.0f, 1.0f, 1.0f);
+	static const ImVec4 COLOR_LIGHT_CYAN  (0.5f, 1.0f, 0.0f, 1.0f);
+	static const ImVec4 COLOR_BLUE		  (0.0f, 0.0f, 1.0f, 1.0f);
+	static const ImVec4 COLOR_MAGENTA	  (1.0f, 0.0f, 1.0f, 1.0f);
+
+
 	struct ScopedIndent
 	{
 	public:
-		inline ScopedIndent(float indent = 12.0f) :
+		inline ScopedIndent() :
+			mIndent(12.0f * Configuration::instance().mDevMode.mUIScale)
+		{
+			ImGui::Indent(mIndent);
+		}
+
+		inline explicit ScopedIndent(float indent, bool applyUIScale = true) :
 			mIndent(indent)
 		{
+			if (applyUIScale)
+				mIndent *= Configuration::instance().mDevMode.mUIScale;
 			ImGui::Indent(mIndent);
 		}
 
