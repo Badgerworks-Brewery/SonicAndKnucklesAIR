@@ -1,6 +1,6 @@
 ﻿/*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -11,25 +11,26 @@
 
 #if defined(SUPPORT_IMGUI)
 
+#include "oxygen/devmode/DevModeMainWindow.h"
 #include "oxygen/devmode/ImGuiHelpers.h"
-#include "oxygen/devmode/windows/DevModeMainWindow.h"
 #include "oxygen/application/Application.h"
+#include "oxygen/platform/PlatformFunctions.h"
 #include "oxygen/simulation/CodeExec.h"
 #include "oxygen/simulation/EmulatorInterface.h"
 #include "oxygen/simulation/Simulation.h"
 
 
 MemoryHexViewWindow::MemoryHexViewWindow() :
-	DevModeWindowBase("Memory Hex View", Category::DEBUGGING, ImGuiWindowFlags_AlwaysAutoResize)
+	DevModeWindowBase("Memory Hex View", Category::SIMULATION, ImGuiWindowFlags_AlwaysAutoResize)
 {
 }
 
 void MemoryHexViewWindow::buildContent()
 {
-	ImGui::SetWindowPos(ImVec2(50.0f, 450.0f), ImGuiCond_FirstUseEver);
+	ImGui::SetWindowPos(ImVec2(500.0f, 500.0f), ImGuiCond_FirstUseEver);
 	ImGui::SetWindowSize(ImVec2(520.0f, 270.0f), ImGuiCond_FirstUseEver);
 
-	const float uiScale = ImGui::GetIO().FontGlobalScale;
+	const float uiScale = getUIScale();
 
 	CodeExec& codeExec = Application::instance().getSimulation().getCodeExec();
 	EmulatorInterface& emulatorInterface = codeExec.getEmulatorInterface();
@@ -75,10 +76,10 @@ void MemoryHexViewWindow::buildContent()
 		static uint32 hoveredAddress = 0xffffffff;
 		uint32 newHoveredAddress = 0xffffffff;
 
-		const ImVec4 cellColorTitle     = ImVec4(0.8f, 0.8f, 0.8f, 1.0f);
+		const ImVec4 cellColorTitle     = ImVec4(0.7f, 0.7f, 0.7f, 1.0f);
 		const uint32 cellBGColorTitle   = ImGui::GetColorU32(ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
 		const uint32 cellBGColorNormal  = ImGui::GetColorU32(ImVec4(0.0f, 0.0f, 0.0f, 0.5f));
-		const uint32 cellBGColorHovered = ImGui::GetColorU32(ImVec4(0.5f, 0.5f, 0.0f, 0.6f) );
+		const uint32 cellBGColorHovered = ImGui::GetColorU32(ImVec4(0.5f, 0.5f, 0.0f, 0.6f));
 
 		ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed, 70.0f * uiScale);
 		for (int column = 1; column <= 16; ++column)
@@ -149,8 +150,12 @@ void MemoryHexViewWindow::buildContent()
 	}
 	else
 	{
-		if (ImGui::BeginTable("Clicked Address", 3, ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersOuterV | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_SizingStretchProp, ImVec2(300.0f * uiScale, 0.0f)))
+		if (ImGui::BeginTable("Clicked Address", 3, ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersOuterV | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_SizingStretchProp, ImVec2(335.0f * uiScale, 0.0f)))
 		{
+			ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed, 100.0f * uiScale);
+			ImGui::TableSetupColumn("Value",   ImGuiTableColumnFlags_WidthFixed, 90.0f * uiScale);
+			ImGui::TableSetupColumn("Buttons");
+
 			for (int size = 0; size < 3; ++size)
 			{
 				ImGui::TableNextRow();
@@ -168,12 +173,25 @@ void MemoryHexViewWindow::buildContent()
 				ImGui::TableSetColumnIndex(1);
 				switch (size)
 				{
-					case 0:  ImGui::Text("0x%02x", emulatorInterface.readMemory8(mClickedAddress));  break;
+					case 0:  ImGui::Text("0x%02x", emulatorInterface.readMemory8 (mClickedAddress));  break;
 					case 1:  ImGui::Text("0x%04x", emulatorInterface.readMemory16(mClickedAddress));  break;
 					case 2:  ImGui::Text("0x%08x", emulatorInterface.readMemory32(mClickedAddress));  break;
 				}
 
 				ImGui::TableSetColumnIndex(2);
+				if (PlatformFunctions::hasClipboardSupport())
+				{
+					if (ImGui::SmallButton("Copy"))
+					{
+						switch (size)
+						{
+							case 0:  PlatformFunctions::copyToClipboard(rmx::hexString(emulatorInterface.readMemory8 (mClickedAddress), 2));  break;
+							case 1:  PlatformFunctions::copyToClipboard(rmx::hexString(emulatorInterface.readMemory16(mClickedAddress), 4));  break;
+							case 2:  PlatformFunctions::copyToClipboard(rmx::hexString(emulatorInterface.readMemory32(mClickedAddress), 8));  break;
+						}
+					}
+					ImGui::SameLine();
+				}
 				if (debugTracking.hasWatch(mClickedAddress, bytes))
 				{
 					if (ImGui::SmallButton("Remove Watch"))

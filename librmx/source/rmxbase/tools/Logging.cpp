@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2024 by Eukaryot
+*	Copyright (C) 2008-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -60,7 +60,7 @@ namespace rmx
 
 	void StdCoutLogger::log(LogLevel logLevel, const std::string& string)
 	{
-	#if !defined(PLATFORM_VITA)		
+	#if !defined(PLATFORM_VITA)
 	#if defined(PLATFORM_WINDOWS)
 		// Use different color in console output on Windows
 		const HANDLE handle = ::GetStdHandle(STD_OUTPUT_HANDLE);
@@ -116,7 +116,6 @@ namespace rmx
 
 		if (renameExisting && FTX::FileSystem->exists(filename))
 		{
-			const time_t time = FTX::FileSystem->getFileTime(filename);
 			std::wstring directory;
 			std::wstring name;
 			std::wstring extension;

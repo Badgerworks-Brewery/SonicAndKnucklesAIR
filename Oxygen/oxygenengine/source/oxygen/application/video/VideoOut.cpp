@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -340,7 +340,7 @@ void VideoOut::collectGeometries(std::vector<Geometry*>& geometries)
 		const Vec2i worldSpaceOffset = mRenderParts->getSpacesManager().getWorldSpaceOffset();
 		FontCollection& fontCollection = FontCollection::instance();
 
-		for (int index = 0; index < RenderItem::NUM_CONTEXTS; ++index)
+		for (int index = 0; index < RenderItem::NUM_LIFETIME_CONTEXTS; ++index)
 		{
 			const RenderItem::LifetimeContext lifetimeContext = (RenderItem::LifetimeContext)index;
 			const std::vector<RenderItem*>& renderItems = spriteManager.getRenderItems(lifetimeContext);

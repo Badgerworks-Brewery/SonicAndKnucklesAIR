@@ -1,6 +1,6 @@
 ﻿/*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -16,16 +16,16 @@
 
 
 PaletteBrowserWindow::PaletteBrowserWindow() :
-	DevModeWindowBase("Palette Browser", Category::ASSET_BROWSERS, ImGuiWindowFlags_AlwaysAutoResize)
+	DevModeWindowBase("Palette Browser", Category::GRAPHICS, ImGuiWindowFlags_AlwaysAutoResize)
 {
 }
 
 void PaletteBrowserWindow::buildContent()
 {
-	ImGui::SetWindowPos(ImVec2(350.0f, 10.0f), ImGuiCond_FirstUseEver);
+	ImGui::SetWindowPos(ImVec2(5.0f, 500.0f), ImGuiCond_FirstUseEver);
 	ImGui::SetWindowSize(ImVec2(500.0f, 250.0f), ImGuiCond_FirstUseEver);
 
-	const float uiScale = ImGui::GetIO().FontGlobalScale;
+	const float uiScale = getUIScale();
 
 	// Refresh list if needed
 	const PaletteCollection& paletteCollection = PaletteCollection::instance();
@@ -63,7 +63,7 @@ void PaletteBrowserWindow::buildContent()
 			if (!filterString.shouldInclude(palette->getIdentifier()))
 				continue;
 
-			const ImVec4 textColor = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);// (nullptr == palette->mSourceInfo.mMod) ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 1.0f, 1.0f, 1.0f);
+			const ImVec4 textColor = ImGuiHelpers::COLOR_WHITE;// (nullptr == palette->mSourceInfo.mMod) ? ImGuiHelpers::COLOR_WHITE : ImGuiHelpers::COLOR_LIGHT_CYAN;
 
 			ImGui::PushID(palette);
 

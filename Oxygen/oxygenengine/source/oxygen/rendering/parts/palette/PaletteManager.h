@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -33,7 +33,7 @@ public:
 	inline Color getBackdropColor() const  { return mMainPalette[0].getColor(mBackdropColorIndex); }
 	inline void setBackdropColorIndex(uint16 paletteIndex)  { mBackdropColorIndex = paletteIndex; }
 
-	void setPaletteSplitPositionY(uint8 py);
+	void setPaletteSplitPositionY(int py);
 
 	inline bool usesGlobalComponentTint() const  { return mUsesGlobalComponentTint; }
 	inline const Vec4f& getGlobalComponentTintColor() const  { return mGlobalComponentTintColor; }
@@ -46,7 +46,7 @@ public:
 	void serializeSaveState(VectorBinarySerializer& serializer, uint8 formatVersion);
 
 public:
-	int mSplitPositionY = 0xffff;	// Use some large value as default that is definitely larger than any responable screen height
+	int mSplitPositionY = 0xffff;	// Use some large value as default that is definitely larger than any responsible screen height
 
 private:
 	Palette mMainPalette[2];		// [0] = Standard palette, [1] = Underwater palette (in S3AIR)

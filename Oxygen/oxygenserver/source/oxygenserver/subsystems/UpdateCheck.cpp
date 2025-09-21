@@ -11,7 +11,6 @@
 #include "oxygenserver/server/ServerNetConnection.h"
 
 #include "oxygen_netcore/network/LagStopwatch.h"
-#include "oxygen_netcore/network/ServerClientBase.h"
 #include "oxygen_netcore/serverclient/Packets.h"
 
 
@@ -53,12 +52,22 @@ UpdateCheck::UpdateCheck()
 	}
 #endif
 
-	// Test build (Windows and Linux)
+	// Test build (Windows)
+	{
+		UpdateDefinition& definition = vectorAdd(mUpdateDefinitions);
+		definition.mVersionNumber = 0x25021500;
+		definition.mReleaseChannel = ReleaseChannel::TEST;
+		definition.addPlatform(Platform::WINDOWS);
+		definition.mUpdateURL = "https://github.com/Eukaryot/sonic3air/releases";
+	}
+
+	// Test build (Windows, Mac, Linux)
 	{
 		UpdateDefinition& definition = vectorAdd(mUpdateDefinitions);
 		definition.mVersionNumber = 0x24120500;
 		definition.mReleaseChannel = ReleaseChannel::TEST;
 		definition.addPlatform(Platform::WINDOWS);
+		definition.addPlatform(Platform::MAC);
 		definition.addPlatform(Platform::LINUX);
 		definition.mUpdateURL = "https://github.com/Eukaryot/sonic3air/releases";
 	}

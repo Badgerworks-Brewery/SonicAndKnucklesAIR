@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -223,7 +223,7 @@ namespace lemon
 				const DataTypeDefinition* dataType = globalsLookup.readDataType(serializer);
 				const int64 initialValue = serializer.read<int64>();
 				GlobalVariable& globalVariable = module.addGlobalVariable(name, dataType);
-				globalVariable.mInitialValue = initialValue;
+				globalVariable.mInitialValue.set(initialValue);
 			}
 		}
 		else
@@ -248,7 +248,7 @@ namespace lemon
 
 				variable.getName().serialize(serializer);
 				serializer.write(variable.getDataType()->getID());
-				serializer.writeAs<int64>(globalVariable.mInitialValue);
+				serializer.write(globalVariable.mInitialValue.get<int64>());
 			}
 		}
 

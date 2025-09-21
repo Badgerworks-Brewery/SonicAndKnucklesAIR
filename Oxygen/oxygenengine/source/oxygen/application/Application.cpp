@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -13,16 +13,15 @@
 #include "oxygen/application/GameLoader.h"
 #include "oxygen/application/audio/AudioOutBase.h"
 #include "oxygen/application/audio/AudioPlayer.h"
+#include "oxygen/application/gameview/GameView.h"
 #include "oxygen/application/input/ControlsIn.h"
 #include "oxygen/application/input/InputManager.h"
-#include "oxygen/application/mainview/GameView.h"
 #include "oxygen/application/menu/GameSetupScreen.h"
 #include "oxygen/application/menu/OxygenMenu.h"
 #include "oxygen/application/overlays/BackdropView.h"
 #include "oxygen/application/overlays/CheatSheetOverlay.h"
 #include "oxygen/application/overlays/DebugLogView.h"
 #include "oxygen/application/overlays/DebugSidePanel.h"
-#include "oxygen/application/overlays/MemoryHexView.h"
 #include "oxygen/application/overlays/MemoryHexView.h"
 #include "oxygen/application/overlays/ProfilingView.h"
 #include "oxygen/application/overlays/SaveStateMenu.h"
@@ -31,7 +30,9 @@
 #include "oxygen/devmode/ImGuiIntegration.h"
 #include "oxygen/helper/Logging.h"
 #include "oxygen/helper/Profiling.h"
+#include "oxygen/network/EngineServerClient.h"
 #include "oxygen/platform/PlatformFunctions.h"
+#include "oxygen/simulation/GameRecorder.h"
 #include "oxygen/simulation/LogDisplay.h"
 #include "oxygen/simulation/PersistentData.h"
 #include "oxygen/simulation/Simulation.h"
@@ -64,9 +65,13 @@ Application::Application() :
 
 Application::~Application()
 {
+	EngineServerClient::instance().shutdownClient();
+
 	delete mGameLoader;
 	delete mSaveStateMenu;
 	delete mSimulation;
+
+	Sockets::shutdownSockets();
 }
 
 void Application::initialize()
@@ -468,6 +473,9 @@ void Application::update(float timeElapsed)
 		}
 	}
 
+	// Update engine server client and netplay
+	EngineServerClient::instance().updateClient(timeElapsed);
+
 	// Update drawer
 	EngineMain::instance().getDrawer().updateDrawer(timeElapsed);
 
@@ -700,7 +708,7 @@ void Application::setWindowMode(WindowMode windowMode, bool force)
 		default:
 		case WindowMode::WINDOWED:
 		{
-			if (mWindowMode == WindowMode::EXCLUSIVE_FULLSCREEN)
+			if (mWindowMode >= WindowMode::FULLSCREEN_DESKTOP)
 			{
 				SDL_SetWindowFullscreen(window, 0);
 			}
@@ -711,11 +719,11 @@ void Application::setWindowMode(WindowMode windowMode, bool force)
 			break;
 		}
 
-		case WindowMode::BORDERLESS_FULLSCREEN:
+		case WindowMode::FULLSCREEN_BORDERLESS:
 		{
-			if (mWindowMode == WindowMode::EXCLUSIVE_FULLSCREEN)
+			if (mWindowMode >= WindowMode::FULLSCREEN_DESKTOP)
 			{
-				// Exit exclusive fullscreen first
+				// Exit fullscreen first
 				SDL_SetWindowFullscreen(window, 0);
 			}
 
@@ -741,9 +749,15 @@ void Application::setWindowMode(WindowMode windowMode, bool force)
 			break;
 		}
 
-		case WindowMode::EXCLUSIVE_FULLSCREEN:
+		case WindowMode::FULLSCREEN_DESKTOP:
 		{
 			SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+			break;
+		}
+
+		case WindowMode::FULLSCREEN_EXCLUSIVE:
+		{
+			SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
 			break;
 		}
 	}
@@ -762,10 +776,10 @@ void Application::toggleFullscreen()
 	if (getWindowMode() == WindowMode::WINDOWED)
 	{
 	#if defined(PLATFORM_LINUX)
-		// Under Linux, the exclusive fullscreen works better, so that's the default
-		setWindowMode(WindowMode::EXCLUSIVE_FULLSCREEN);
+		// Under Linux, the fullscreen with desktop resolution works better, so that's the default
+		setWindowMode(WindowMode::FULLSCREEN_DESKTOP);
 	#else
-		setWindowMode(WindowMode::BORDERLESS_FULLSCREEN);
+		setWindowMode(WindowMode::FULLSCREEN_BORDERLESS);
 	#endif
 	}
 	else
@@ -781,7 +795,7 @@ void Application::enablePauseOnFocusLoss()
 
 void Application::triggerGameRecordingSave()
 {
-	if (Configuration::instance().mGameRecorder.mIsRecording)
+	if (mSimulation->getGameRecorder().isRecording())
 	{
 		WString filename;
 		const uint32 numFrames = mSimulation->saveGameRecording(&filename);

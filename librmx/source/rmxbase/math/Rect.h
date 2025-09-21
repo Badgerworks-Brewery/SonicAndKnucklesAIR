@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2024 by Eukaryot
+*	Copyright (C) 2008-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -143,18 +143,22 @@ public:
 
 	void addBorder(TYPE border)
 	{
-		x -= border;
-		y -= border;
-		width += border * 2;
-		height += border * 2;
+		set(x - border, y - border, width + border * 2, height + border * 2);
 	}
 
 	void addBorder(const Vec2<TYPE>& border)
 	{
-		x -= border.x;
-		y -= border.y;
-		width += border.x * 2;
-		height += border.y * 2;
+		set(x - border.x, y - border.y, width + border.x * 2, height + border.y * 2);
+	}
+
+	TRect withBorder(TYPE border) const
+	{
+		return TRect(x - border, y - border, width + border * 2, height + border * 2);
+	}
+
+	TRect withBorder(const Vec2<TYPE>& border) const
+	{
+		return TRect(x - border.x, y - border.y, width + border.x * 2, height + border.y * 2);
 	}
 
 	TYPE& operator[](size_t index)				{ return mData[index]; }

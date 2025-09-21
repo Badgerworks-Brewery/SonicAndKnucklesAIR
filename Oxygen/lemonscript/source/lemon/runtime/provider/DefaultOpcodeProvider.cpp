@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -370,7 +370,7 @@ namespace lemon
 		switch (opcode.mType)
 		{
 			case Opcode::Type::MOVE_STACK:
-                parameterSize = (opcode.mParameter == -1) ? 0 : 8;
+				parameterSize = (opcode.mParameter == -1) ? 0 : 8;
 				break;
 			case Opcode::Type::NOP:
 			case Opcode::Type::READ_MEMORY:
@@ -404,10 +404,10 @@ namespace lemon
 			case Opcode::Type::JUMP_CONDITIONAL:
 				parameterSize = 16;
 				break;
-        #endif
-            default:
-                parameterSize = 8;
-                break;
+		#endif
+			default:
+				parameterSize = 8;
+				break;
 		}
 
 		RuntimeOpcode& runtimeOpcode = buffer.addOpcode(parameterSize);

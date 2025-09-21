@@ -1,6 +1,6 @@
 ﻿/*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -14,6 +14,7 @@
 #include "oxygen/devmode/ImGuiHelpers.h"
 #include "oxygen/application/Application.h"
 #include "oxygen/application/modding/Mod.h"
+#include "oxygen/platform/PlatformFunctions.h"
 #include "oxygen/simulation/CodeExec.h"
 #include "oxygen/simulation/LemonScriptProgram.h"
 #include "oxygen/simulation/LogDisplay.h"
@@ -23,16 +24,16 @@
 
 
 ScriptBuildWindow::ScriptBuildWindow() :
-	DevModeWindowBase("Script Build", Category::SCRIPTS, 0)
+	DevModeWindowBase("Script Build", Category::SIMULATION, 0)
 {
 }
 
 void ScriptBuildWindow::buildContent()
 {
-	ImGui::SetWindowPos(ImVec2(350.0f, 10.0f), ImGuiCond_FirstUseEver);
+	ImGui::SetWindowPos(ImVec2(5.0f, 450.0f), ImGuiCond_FirstUseEver);
 	ImGui::SetWindowSize(ImVec2(500.0f, 250.0f), ImGuiCond_FirstUseEver);
 
-	const float uiScale = ImGui::GetIO().FontGlobalScale;
+	const float uiScale = getUIScale();
 
 	Simulation& simulation = Application::instance().getSimulation();
 	const LemonScriptProgram& program = simulation.getCodeExec().getLemonScriptProgram();
@@ -71,13 +72,19 @@ void ScriptBuildWindow::buildContent()
 			ImGui::TableSetColumnIndex(0);
 			ImGui::Spacing();
 
-			const ImVec4 textColor = (nullptr == mod) ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 1.0f, 1.0f, 1.0f);
+			const ImVec4 textColor = (nullptr == mod) ? ImGuiHelpers::COLOR_WHITE : ImGuiHelpers::COLOR_LIGHT_CYAN;
 
 			ImGui::PushID(module);
 
 			ImGui::PushStyleColor(ImGuiCol_Text, textColor);
 			const bool isOpen = ImGui::TreeNodeEx(&module, 0, "%s", module->getModuleName().c_str());
 			ImGui::PopStyleColor();
+
+			if (!module->getWarnings().empty())
+			{
+				ImGui::SameLine();
+				ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "%d warning%s", (int)module->getWarnings().size(), (module->getWarnings().size() == 1) ? "" : "s");
+			}
 
 			if (isOpen)
 			{
@@ -91,6 +98,22 @@ void ScriptBuildWindow::buildContent()
 					{
 						if (ImGui::TreeNodeEx(&warning, ImGuiTreeNodeFlags_DefaultOpen, "%s", warning.mMessage.c_str()))
 						{
+							if (PlatformFunctions::hasClipboardSupport())
+							{
+								// Context menu
+								if (ImGui::BeginPopupContextItem())
+								{
+									if (ImGui::Button("Copy warning text to clipboard"))
+									{
+										PlatformFunctions::copyToClipboard(warning.mMessage);
+										ImGui::CloseCurrentPopup();
+									}
+									ImGui::EndPopup();
+								}
+								ImGui::SetItemTooltip("Right-click for options");
+							}
+
+							// List of occurences
 							for (const lemon::CompilerWarning::Occurrence& occurrence : warning.mOccurrences)
 							{
 								if (nullptr != occurrence.mSourceFileInfo)

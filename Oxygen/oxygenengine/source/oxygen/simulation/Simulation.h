@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -20,6 +20,13 @@ class SimulationState;
 class Simulation
 {
 public:
+	enum class BreakCondition
+	{
+		DEBUG_LOG	= 0x01,
+		WATCH_HIT	= 0x02,
+	};
+
+public:
 	Simulation();
 	~Simulation();
 
@@ -33,6 +40,7 @@ public:
 
 	CodeExec& getCodeExec()				  { return mCodeExec; }
 	SimulationState& getSimulationState() { return mSimulationState; }
+	GameRecorder& getGameRecorder()		  { return mGameRecorder; }
 	ROMDataAnalyser* getROMDataAnalyser() { return mROMDataAnalyser; }
 	EmulatorInterface& getEmulatorInterface();
 
@@ -52,7 +60,7 @@ public:
 	bool generateFrame();
 	bool jumpToFrame(uint32 frameNumber, bool clearRecordingAfterwards = true);
 
-	inline void setRewind(int rewindSteps) { mRewindSteps = rewindSteps; }
+	int setRewind(int rewindSteps);
 
 	float getSimulationFrequency() const;
 	void setSimulationFrequencyOverride(float frequency) { mSimulationFrequencyOverride = frequency; }
@@ -62,12 +70,21 @@ public:
 	void setSpeed(float emulatorSpeed);
 	inline float getDefaultSpeed() const  { return mDefaultSimulationSpeed; }
 	inline void setDefaultSpeed(float defaultSpeed)  { mDefaultSimulationSpeed = defaultSpeed; }
-	void setNextSingleStep(bool singleStep, bool continueToDebugEvent = false);
-	void stopSingleStepContinue();
+
+	inline bool hasStepsLimit() const  { return mStepsLimit >= 0; }
+	void setNextSingleStep();
+	void removeStepsLimit();
+
+	inline bool hasBreakCondition(BreakCondition breakCondition) const  { return mBreakConditions.isSet(breakCondition); }
+	void setBreakCondition(BreakCondition breakCondition, bool enable);
+	void sendBreakSignal(BreakCondition breakCondition);
 
 	void refreshDebugging();
 
 	uint32 saveGameRecording(WString* outFilename = nullptr);
+
+private:
+	void applyModSettingsToGlobals();
 
 private:
 	CodeExec& mCodeExec;
@@ -80,8 +97,8 @@ private:
 	float	mSimulationFrequencyOverride = 0.0f;
 	float	mSimulationSpeed = 1.0f;
 	float	mDefaultSimulationSpeed = 1.0f;
-	bool	mNextSingleStep = false;
-	bool	mSingleStepContinue = false;
+	int		mStepsLimit = -1;
+	BitFlagSet<BreakCondition> mBreakConditions;
 
 	double	mCurrentTargetFrame = 0.0f;
 	uint32	mFrameNumber = 0;

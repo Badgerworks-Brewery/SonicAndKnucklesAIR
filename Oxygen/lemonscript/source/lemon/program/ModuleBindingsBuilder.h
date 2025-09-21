@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -159,7 +159,7 @@ namespace lemon
 		{
 			mModule.addConstant(name, traits::getDataType<T>(), AnyBaseValue((T)value));
 		}
-		
+
 		inline NativeFunctionBinding addNativeFunction(FlyweightString name, const NativeFunction::FunctionWrapper& functionWrapper, BitFlagSet<Function::Flag> flags = BitFlagSet<Function::Flag>())
 		{
 			NativeFunction& function = mModule.addNativeFunction(name, functionWrapper, flags);

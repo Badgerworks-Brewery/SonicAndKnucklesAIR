@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -9,10 +9,10 @@
 #include "oxygen/pch.h"
 #include "oxygen/application/overlays/DebugSidePanel.h"
 #include "oxygen/application/overlays/DebugSidePanelCategory.h"
-#include "oxygen/application/mainview/GameView.h"
 #include "oxygen/application/Application.h"
 #include "oxygen/application/Configuration.h"
 #include "oxygen/application/EngineMain.h"
+#include "oxygen/application/gameview/GameView.h"
 #include "oxygen/application/video/VideoOut.h"
 #include "oxygen/rendering/parts/RenderParts.h"
 #include "oxygen/simulation/CodeExec.h"
@@ -233,7 +233,6 @@ void DebugSidePanel::render()
 			{
 				case DebugSidePanelCategory::Type::INTERNAL:	color = ((i == mActiveCategoryIndex) ? Color::YELLOW : Color(0.6f, 0.6f, 0.5f, 0.75f));	 break;
 				case DebugSidePanelCategory::Type::CUSTOM:		color = ((i == mActiveCategoryIndex) ? Color::GREEN : Color(0.5f, 0.7f, 0.5f, 0.75f));	 break;
-				case DebugSidePanelCategory::Type::GAME:		color = ((i == mActiveCategoryIndex) ? Color::GREEN : Color(0.5f, 0.7f, 0.5f, 0.75f));	 break;
 			}
 			drawer.printText(mSmallFont, r, buffer, 5, color);
 
@@ -259,15 +258,6 @@ void DebugSidePanel::render()
 		case DebugSidePanelCategory::Type::CUSTOM:
 		{
 			static_cast<CustomDebugSidePanelCategory&>(category).buildCategoryContent(mBuilder, drawer, mMouseOverKey);
-			break;
-		}
-
-		case DebugSidePanelCategory::Type::GAME:
-		{
-			if (category.mCallback)
-			{
-				category.mCallback(category, mBuilder, mMouseOverKey);
-			}
 			break;
 		}
 	}
@@ -375,14 +365,6 @@ void DebugSidePanel::render()
 	drawer.performRendering();
 }
 
-DebugSidePanelCategory& DebugSidePanel::createGameCategory(size_t identifier, const std::string& header, char shortCharacter, const std::function<void(DebugSidePanelCategory&,Builder&,uint64)>& callback)
-{
-	DebugSidePanelCategory& category = addCategory(identifier, header, shortCharacter);
-	category.mType = DebugSidePanelCategory::Type::GAME;
-	category.mCallback = callback;
-	return category;
-}
-
 bool DebugSidePanel::setupCustomCategory(std::string_view header, char shortCharacter)
 {
 	// Search for the category
@@ -406,15 +388,16 @@ bool DebugSidePanel::setupCustomCategory(std::string_view header, char shortChar
 
 		index = (int)mCategories.size();
 		mSetupCustomCategory = new CustomDebugSidePanelCategory();
-
 		mSetupCustomCategory->mHeader = header;
 		mSetupCustomCategory->mShortCharacter = shortCharacter;
+
 		mCategories.push_back(mSetupCustomCategory);
+		mCustomCategories.push_back(mSetupCustomCategory);
 	}
 
 	mSetupCustomCategory->onSetup();
 
-	return ((size_t)index == mActiveCategoryIndex);
+	return ((size_t)index == mActiveCategoryIndex) || mSetupCustomCategory->isVisibleInDevModeWindow();
 }
 
 bool DebugSidePanel::addOption(std::string_view text, bool defaultValue)

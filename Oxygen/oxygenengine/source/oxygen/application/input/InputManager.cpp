@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -279,7 +279,7 @@ const char* InputManager::RealDevice::getName() const
 
 
 
-const std::string InputManager::KEYBOARD_DEVICE_NAMES[NUM_PLAYERS] = { "Keyboard1", "Keyboard2" };
+const std::string InputManager::KEYBOARD_DEVICE_NAMES[NUM_PLAYERS] = { "Keyboard1", "Keyboard2", "Keyboard3", "Keyboard4" };
 
 InputManager::InputManager()
 {
@@ -810,13 +810,13 @@ const InputManager::RealDevice* InputManager::getGamepadByJoystickInstanceId(int
 
 int32 InputManager::getPreferredGamepadByJoystickInstanceId(int playerIndex) const
 {
-	RMX_ASSERT(playerIndex >= 0 && playerIndex < 2, "Invalid player index " << playerIndex);
+	RMX_ASSERT(playerIndex >= 0 && playerIndex < NUM_PLAYERS, "Invalid player index " << playerIndex);
 	return mPlayers[playerIndex].mPreferredGamepad.mSDLJoystickInstanceId;
 }
 
 void InputManager::setPreferredGamepad(int playerIndex, const RealDevice* gamepad)
 {
-	RMX_ASSERT(playerIndex >= 0 && playerIndex < 2, "Invalid player index " << playerIndex);
+	RMX_ASSERT(playerIndex >= 0 && playerIndex < NUM_PLAYERS, "Invalid player index " << playerIndex);
 	PreferredGamepad& preferredGamepad = mPlayers[playerIndex].mPreferredGamepad;
 	if (nullptr != gamepad)
 	{

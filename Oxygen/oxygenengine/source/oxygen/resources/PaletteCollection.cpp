@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -63,12 +63,15 @@ void PaletteCollection::loadPalettesInDirectory(const std::wstring& path, bool i
 
 		std::vector<uint8> content;
 		if (!FTX::FileSystem->readFile(fileEntry.mPath + fileEntry.mFilename, content))
+		{
+			RMX_ERROR("Failed to load PNG at '" << *WString(fileEntry.mPath + fileEntry.mFilename).toString() << "': File loading failed", );
 			continue;
+		}
 
 		Bitmap bitmap;
 		if (!bitmap.load(fileEntry.mPath + fileEntry.mFilename))
 		{
-			RMX_ERROR("Failed to load PNG at '" << *WString(fileEntry.mPath + fileEntry.mFilename).toString() << "'", );
+			RMX_ERROR("Failed to load PNG at '" << *WString(fileEntry.mPath + fileEntry.mFilename).toString() << "': Format not supported", );
 			continue;
 		}
 
