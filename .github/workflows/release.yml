@@ -1,0 +1,264 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'release-*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for the release'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
+    steps:
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
+        release_name: Sonic 3 A.I.R. ${{ github.event.inputs.tag_name || github.ref_name }}
+        body: |
+          ## Sonic 3 A.I.R. Release ${{ github.event.inputs.tag_name || github.ref_name }}
+          
+          ### Downloads
+          - **Windows**: Download `sonic3air-windows-release.zip`
+          - **Linux**: Download `sonic3air-linux-release.zip`  
+          - **macOS**: Download `sonic3air-macos-release.zip`
+          
+          ### Installation
+          1. Download the appropriate package for your platform
+          2. Extract the archive
+          3. Place your Sonic & Knuckles ROM file (`Sonic_Knuckles_wSonic3.bin`) in the same directory
+          4. Run the executable
+          
+          ### Requirements
+          - Original Sonic & Knuckles ROM file
+          - OpenGL-compatible graphics card
+          - Audio system (ALSA/PulseAudio on Linux)
+          
+          **Note**: This is a fan-made project and requires the original ROM file to function.
+        draft: false
+        prerelease: false
+
+  build-release:
+    needs: create-release
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            executable_name: sonic3air_linux
+            oxygen_name: oxygenapp_linux
+            archive_name: sonic3air-linux-release.zip
+          - os: windows-latest
+            platform: windows
+            executable_name: sonic3air.exe
+            oxygen_name: oxygenapp.exe
+            archive_name: sonic3air-windows-release.zip
+          - os: macos-latest
+            platform: macos
+            executable_name: Sonic3AIR
+            oxygen_name: OxygenApp
+            archive_name: sonic3air-macos-release.zip
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Install Linux dependencies
+      if: matrix.platform == 'linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          g++ \
+          cmake \
+          libgl1-mesa-dev \
+          libglu1-mesa-dev \
+          libasound2-dev \
+          libpulse-dev \
+          libxcomposite-dev \
+          libxxf86vm-dev \
+          libcurl4-openssl-dev \
+          libx11-dev \
+          libxext-dev \
+          libxrandr-dev \
+          libxi-dev \
+          libxss-dev \
+          libxxf86vm-dev \
+          libxcursor-dev \
+          libxinerama-dev
+          
+    - name: Install macOS dependencies
+      if: matrix.platform == 'macos'
+      run: |
+        brew update
+        brew install cmake curl
+        
+    - name: Setup MSVC (Windows)
+      if: matrix.platform == 'windows'
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Setup Visual Studio environment (Windows)
+      if: matrix.platform == 'windows'
+      uses: ilammy/msvc-dev-cmd@v1
+      
+    - name: Clean build directory (Linux/macOS)
+      if: matrix.platform != 'windows'
+      run: rm -rf ./Oxygen/sonic3air/build/_cmake/build
+      
+    - name: Clean build directory (Windows)
+      if: matrix.platform == 'windows'
+      run: Remove-Item -Recurse -Force -ErrorAction SilentlyContinue ./Oxygen/sonic3air/build/_cmake/build
+      shell: powershell
+      
+    - name: Create build directory
+      run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build
+      
+    - name: Configure CMake (Linux/macOS)
+      if: matrix.platform != 'windows'
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build
+      run: |
+        cmake -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_OXYGEN_ENGINEAPP=ON \
+              -DBUILD_OXYGEN_SERVER=OFF \
+              -DBUILD_SDL_STATIC=ON \
+              -DUSE_DISCORD=${{ matrix.platform == 'windows' && 'ON' || 'OFF' }} \
+              -DUSE_IMGUI=ON \
+              ..
+              
+    - name: Configure CMake (Windows)
+      if: matrix.platform == 'windows'
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build
+      run: |
+        cmake -DCMAKE_BUILD_TYPE=Release ^
+              -DBUILD_OXYGEN_ENGINEAPP=ON ^
+              -DBUILD_OXYGEN_SERVER=OFF ^
+              -DBUILD_SDL_STATIC=ON ^
+              -DUSE_DISCORD=ON ^
+              -DUSE_IMGUI=ON ^
+              -G "Visual Studio 17 2022" ^
+              -A x64 ^
+              ..
+      shell: cmd
+              
+    - name: Build project (Linux/macOS)
+      if: matrix.platform != 'windows'
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build
+      run: cmake --build . -j $(nproc 2>/dev/null || sysctl -n hw.ncpu)
+      
+    - name: Build project (Windows)
+      if: matrix.platform == 'windows'
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build
+      run: cmake --build . --config Release -j %NUMBER_OF_PROCESSORS%
+      shell: cmd
+      
+    - name: Prepare release package (Linux/macOS)
+      if: matrix.platform != 'windows'
+      run: |
+        mkdir -p release-package
+        
+        # Copy main executable
+        if [ -f "./Oxygen/sonic3air/${{ matrix.executable_name }}" ]; then
+          cp "./Oxygen/sonic3air/${{ matrix.executable_name }}" release-package/
+        fi
+        
+        # Copy Oxygen app if it exists
+        if [ -f "./Oxygen/oxygenengine/${{ matrix.oxygen_name }}" ]; then
+          cp "./Oxygen/oxygenengine/${{ matrix.oxygen_name }}" release-package/
+        fi
+        
+        # Copy essential data files
+        if [ -d "./Oxygen/sonic3air/data" ]; then
+          cp -r "./Oxygen/sonic3air/data" release-package/
+        fi
+        
+        # Create README for users
+        cat > release-package/README.txt << 'EOF'
+        Sonic 3 A.I.R. - Angel Island Revisited
+        =======================================
+        
+        This is a fan-made remaster of Sonic 3 & Knuckles.
+        
+        IMPORTANT: You need the original Sonic & Knuckles ROM file to play!
+        
+        Installation:
+        1. Place your "Sonic_Knuckles_wSonic3.bin" ROM file in this directory
+        2. Run the sonic3air executable
+        3. Enjoy!
+        
+        For more information, visit: https://sonic3air.org/
+        
+        This is a non-profit fan project and is not affiliated with SEGA.
+        EOF
+        
+    - name: Prepare release package (Windows)
+      if: matrix.platform == 'windows'
+      run: |
+        mkdir release-package
+        
+        # Find and copy executables
+        Get-ChildItem -Path . -Name "*.exe" -Recurse | ForEach-Object {
+          $source = $_
+          if ($source -like "*sonic3air*" -or $source -like "*oxygen*") {
+            Copy-Item $source "release-package\"
+          }
+        }
+        
+        # Copy essential data files
+        if (Test-Path "./Oxygen/sonic3air/data") {
+          Copy-Item -Recurse "./Oxygen/sonic3air/data" "release-package\"
+        }
+        
+        # Create README for users
+        @"
+        Sonic 3 A.I.R. - Angel Island Revisited
+        =======================================
+        
+        This is a fan-made remaster of Sonic 3 & Knuckles.
+        
+        IMPORTANT: You need the original Sonic & Knuckles ROM file to play!
+        
+        Installation:
+        1. Place your "Sonic_Knuckles_wSonic3.bin" ROM file in this directory
+        2. Run sonic3air.exe
+        3. Enjoy!
+        
+        For more information, visit: https://sonic3air.org/
+        
+        This is a non-profit fan project and is not affiliated with SEGA.
+        "@ | Out-File -FilePath "release-package\README.txt" -Encoding UTF8
+      shell: powershell
+        
+    - name: Create release archive
+      run: |
+        cd release-package
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          7z a "../${{ matrix.archive_name }}" *
+        else
+          zip -r "../${{ matrix.archive_name }}" *
+        fi
+      shell: bash
+      
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: ./${{ matrix.archive_name }}
+        asset_name: ${{ matrix.archive_name }}
+        asset_content_type: application/zip

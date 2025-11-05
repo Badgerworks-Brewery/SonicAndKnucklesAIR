@@ -188,7 +188,11 @@ if (NOT CMAKE_VERSION VERSION_LESS "3.16.0")
 	target_precompile_headers(rmxbase PRIVATE ${WORKSPACE_DIR}/librmx/source/rmxbase.h)
 endif()
 
-target_link_libraries(rmxbase stdc++fs)
+# Link stdc++fs only on Linux/GCC where it's a separate library
+# On macOS and other platforms, filesystem support is built into the standard library
+if (UNIX AND NOT APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	target_link_libraries(rmxbase stdc++fs)
+endif()
 target_link_libraries(rmxbase zlibstatic)
 
 
