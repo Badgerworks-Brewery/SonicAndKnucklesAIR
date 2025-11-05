@@ -19,14 +19,23 @@ public:
 		uint32 mSize = 0;
 		uint64 mChecksum = 0;
 	};
+	enum class RomType
+	{
+		GENESIS,	// Sega Genesis/Mega Drive ROM (.bin)
+		PC			// PC Collection executable (.exe)
+	};
+
 	struct RomInfo
 	{
+		RomType mRomType = RomType::GENESIS;
 		std::string mSteamGameName;
 		std::wstring mSteamRomName;
 		uint64 mHeaderChecksum = 0;
 		std::vector<std::pair<uint32, uint8>> mOverwrites;		// First value: address -- second value: byte value to write there
 		std::vector<std::pair<uint32, uint32>> mBlankRegions;	// First value: start address -- second value: end address (included)
 		std::wstring mDiffFileName;
+		uint32 mPCDataOffset = 0;		// Offset in PC executable where game data starts
+		uint32 mPCDataSize = 0;			// Size of game data in PC executable
 	};
 
 	struct DataPackage

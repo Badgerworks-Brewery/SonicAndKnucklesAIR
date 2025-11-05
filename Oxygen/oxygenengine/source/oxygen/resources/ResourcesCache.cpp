@@ -152,8 +152,23 @@ bool ResourcesCache::loadRomFile(const std::wstring& filename, const GameProfile
 {
 	const GameProfile::RomCheck& romCheck = GameProfile::instance().mRomCheck;
 	mRom.reserve(romCheck.mSize > 0 ? romCheck.mSize : 0x400000);
-	if (!FTX::FileSystem->readFile(filename, mRom))
+	
+	std::vector<uint8> fileContent;
+	if (!FTX::FileSystem->readFile(filename, fileContent))
 		return false;
+
+	// Handle PC executable format
+	if (romInfo.mRomType == GameProfile::RomType::PC)
+	{
+		// Extract game data from PC executable
+		if (!extractPCGameData(fileContent, romInfo))
+			return false;
+	}
+	else
+	{
+		// For Genesis ROMs, use the file content directly
+		mRom = fileContent;
+	}
 
 	// If ROM info defines a required header checksum, make sure it fits (this is meant to be an early-out before doing the potentially expensive code below)
 	const uint64 headerChecksum = getHeaderChecksum(mRom);
@@ -295,5 +310,24 @@ void ResourcesCache::saveRomToAppData()
 			RMX_ERROR("Failed to store a copy of the ROM in the app data folder", );
 		}
 	}
+}
+
+bool ResourcesCache::extractPCGameData(const std::vector<uint8>& exeContent, const GameProfile::RomInfo& romInfo)
+{
+	// PC executable contains game data at a specific offset
+	// The game data is stored in the same format as the Genesis ROM
+	
+	if (exeContent.size() < romInfo.mPCDataOffset + romInfo.mPCDataSize)
+	{
+		RMX_LOG_ERROR("PC executable is too small to contain game data");
+		return false;
+	}
+
+	// Extract game data from executable
+	mRom.resize(romInfo.mPCDataSize);
+	memcpy(&mRom[0], &exeContent[romInfo.mPCDataOffset], romInfo.mPCDataSize);
+
+	RMX_LOG_INFO("Extracted " << romInfo.mPCDataSize << " bytes of game data from PC executable at offset 0x" << rmx::hexString(romInfo.mPCDataOffset));
+	return true;
 }
 

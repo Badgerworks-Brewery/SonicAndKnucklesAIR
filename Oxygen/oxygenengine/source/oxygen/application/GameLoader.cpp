@@ -52,15 +52,15 @@ GameLoader::UpdateResult GameLoader::updateLoading()
 				if (!gameProfile.mRomInfos.empty())
 				{
 				#if defined(PLATFORM_WINDOWS)
-					const std::string text = "This game requires an original " + gameProfile.mRomInfos[0].mSteamGameName + " ROM to work.\nIf you have one, click OK and select it in the following dialog.\n\nSee the Manual for details.";
+					const std::string text = "This game requires an original " + gameProfile.mRomInfos[0].mSteamGameName + " ROM or PC Collection executable to work.\nIf you have one, click OK and select it in the following dialog.\n\nSee the Manual for details.";
 					const PlatformFunctions::DialogResult result = PlatformFunctions::showDialogBox(rmx::ErrorSeverity::INFO, PlatformFunctions::DialogButtons::OK_CANCEL, gameProfile.mFullName, text);
 					if (result == PlatformFunctions::DialogResult::CANCEL)
 					{
 						return UpdateResult::FAILURE;
 					}
 
-					const std::wstring title = L"Select " + String(gameProfile.mRomInfos[0].mSteamGameName).toStdWString() + L" ROM";
-					const std::wstring romPath = PlatformFunctions::openFileSelectionDialog(title, gameProfile.mRomInfos[0].mSteamRomName, L"Genesis ROM files (*.bin)\0*.bin\0All Files\0*.*\0\0");
+					const std::wstring title = L"Select " + String(gameProfile.mRomInfos[0].mSteamGameName).toStdWString() + L" ROM or PC Collection Executable";
+					const std::wstring romPath = PlatformFunctions::openFileSelectionDialog(title, gameProfile.mRomInfos[0].mSteamRomName, L"Game Files (*.bin;*.exe)\0*.bin;*.exe\0Genesis ROM files (*.bin)\0*.bin\0PC Collection Executable (*.exe)\0*.exe\0All Files\0*.*\0\0");
 					const bool success = ResourcesCache::instance().loadRomFromFile(romPath);
 					if (success)
 					{
