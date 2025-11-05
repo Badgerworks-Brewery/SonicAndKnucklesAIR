@@ -56,8 +56,11 @@ bin/
 
 # Oxygen
 /Oxygen/oxygenengine/OxygenApp
+/Oxygen/oxygenengine/oxygenapp_linux
 /Oxygen/sonic3air/Sonic3AIR
+/Oxygen/sonic3air/sonic3air_linux
 /Oxygen/sonic3air/source/_cmake/build/*
+/Oxygen/sonic3air/build/_cmake/build/*
 /Oxygen/sonic3air/___internal/analysis/*
 /Oxygen/sonic3air/saves/scripts.bin
 /Oxygen/sonic3air/saves/rec
