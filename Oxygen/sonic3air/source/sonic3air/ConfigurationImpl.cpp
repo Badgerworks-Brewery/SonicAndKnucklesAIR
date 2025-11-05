@@ -38,11 +38,26 @@ void ConfigurationImpl::fillDefaultGameProfile(GameProfile& gameProfile)
 	gameProfile.mRomCheck.mSize = 0x400000;
 	gameProfile.mRomCheck.mChecksum = 0x344983ffcfeff8cb;
 
-	gameProfile.mRomInfos.resize(1);
+	// Configure ROM info for both Genesis and PC versions
+	static const uint32 PC_SONIC3K_DATA_OFFSET = 0x153000;  // Start of game data in SONIC3K.EXE
+	static const uint32 PC_SONIC3K_DATA_SIZE = 0x400000;    // 4MB of game data (matches Genesis ROM size)
+
+	gameProfile.mRomInfos.resize(2);
+	
+	// Genesis ROM configuration
+	gameProfile.mRomInfos[0].mRomType = GameProfile::RomType::GENESIS;
 	gameProfile.mRomInfos[0].mSteamGameName = "Sonic 3 & Knuckles";
 	gameProfile.mRomInfos[0].mSteamRomName = L"Sonic_Knuckles_wSonic3.bin";
 	gameProfile.mRomInfos[0].mOverwrites.clear();
 	gameProfile.mRomInfos[0].mOverwrites.emplace_back(0x2001f0, 0x4a);
+
+	// PC Collection configuration
+	// Data in SONIC3K.EXE starts around 0x153000 and extends to ~0x420000
+	gameProfile.mRomInfos[1].mRomType = GameProfile::RomType::PC;
+	gameProfile.mRomInfos[1].mSteamGameName = "Sonic & Knuckles Collection";
+	gameProfile.mRomInfos[1].mSteamRomName = L"SONIC3K.EXE";
+	gameProfile.mRomInfos[1].mPCDataOffset = PC_SONIC3K_DATA_OFFSET;
+	gameProfile.mRomInfos[1].mPCDataSize = PC_SONIC3K_DATA_SIZE;
 }
 
 ConfigurationImpl::ConfigurationImpl()
