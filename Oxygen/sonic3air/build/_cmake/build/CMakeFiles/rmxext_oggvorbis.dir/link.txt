@@ -1,2 +1,0 @@
-/usr/bin/ar qc librmxext_oggvorbis.a CMakeFiles/rmxext_oggvorbis.dir/home/runner/work/SonicAndKnucklesAIR/SonicAndKnucklesAIR/librmx/source/rmxext_oggvorbis/OggLoader.cpp.o CMakeFiles/rmxext_oggvorbis.dir/home/runner/work/SonicAndKnucklesAIR/SonicAndKnucklesAIR/librmx/source/rmxext_oggvorbis/rmxext_oggvorbis.cpp.o
-/usr/bin/ranlib librmxext_oggvorbis.a

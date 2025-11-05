@@ -28,7 +28,17 @@ jobs:
           libpulse-dev \
           libxcomposite-dev \
           libxxf86vm-dev \
-          libcurl4-openssl-dev
+          libcurl4-openssl-dev \
+          libx11-dev \
+          libxext-dev \
+          libxrandr-dev \
+          libxi-dev \
+          libxinerama-dev \
+          libxcursor-dev \
+          libxss-dev \
+          libxcb1-dev \
+          libxcb-keysyms1-dev \
+          libxcb-xkb-dev
           
     - name: Clean build directory
       run: rm -rf ./Oxygen/sonic3air/build/_cmake/build
