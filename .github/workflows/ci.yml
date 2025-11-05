@@ -30,8 +30,23 @@ jobs:
           libxxf86vm-dev \
           libcurl4-openssl-dev
           
+    - name: Clean build directory
+      run: rm -rf ./Oxygen/sonic3air/build/_cmake/build
+      
     - name: Create build directory
       run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build
+      
+    - name: Verify external dependencies
+      run: |
+        echo "Checking external dependencies..."
+        echo "=== SDL2 ==="
+        ls -la ./framework/external/sdl/ || echo "❌ SDL2 not found"
+        echo "=== zlib ==="
+        ls -la ./framework/external/zlib/ || echo "❌ zlib not found"
+        echo "=== ogg-vorbis ==="
+        ls -la ./framework/external/ogg-vorbis/ || echo "❌ ogg-vorbis not found"
+        echo "=== ImGui ==="
+        ls -la ./framework/external/imgui/ || echo "❌ ImGui not found"
       
     - name: Configure CMake (Release)
       working-directory: ./Oxygen/sonic3air/build/_cmake/build
