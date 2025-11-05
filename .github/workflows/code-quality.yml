@@ -35,6 +35,9 @@ jobs:
           libxxf86vm-dev \
           libcurl4-openssl-dev
           
+    - name: Clean build directory
+      run: rm -rf ./Oxygen/sonic3air/build/_cmake/build
+      
     - name: Create build directory
       run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build
       
@@ -108,6 +111,9 @@ jobs:
           libxxf86vm-dev \
           libcurl4-openssl-dev
           
+    - name: Clean build directory
+      run: rm -rf ./Oxygen/sonic3air/build/_cmake/build-${{ matrix.sanitizer }}
+      
     - name: Create build directory
       run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build-${{ matrix.sanitizer }}
       
