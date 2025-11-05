@@ -51,8 +51,28 @@ jobs:
           libxcb-keysyms1-dev \
           libxcb-xkb-dev
           
+    - name: Clean build directory
+      run: rm -rf ./Oxygen/sonic3air/build/_cmake/build
+      
     - name: Create build directory
       run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build
+      
+    - name: Verify external dependencies
+      run: |
+        echo "Checking external dependencies..."
+        echo "=== SDL2 ==="
+        ls -la ./framework/external/sdl/ || echo "❌ SDL2 not found"
+        echo "=== zlib ==="
+        ls -la ./framework/external/zlib/ || echo "❌ zlib not found"
+        echo "=== ogg-vorbis ==="
+        ls -la ./framework/external/ogg-vorbis/ || echo "❌ ogg-vorbis not found"
+        echo "=== ImGui ==="
+        ls -la ./framework/external/imgui/ || echo "❌ ImGui not found"
+        echo "=== Project structure ==="
+        ls -la ./librmx/ || echo "❌ librmx not found"
+        ls -la ./Oxygen/lemonscript/ || echo "❌ lemonscript not found"
+        ls -la ./Oxygen/oxygenengine/ || echo "❌ oxygenengine not found"
+        ls -la ./Oxygen/sonic3air/ || echo "❌ sonic3air not found"
       
     - name: Configure CMake
       working-directory: ./Oxygen/sonic3air/build/_cmake/build
@@ -72,8 +92,12 @@ jobs:
     - name: Check build outputs
       run: |
         echo "Checking for built executables..."
+        echo "=== Sonic3AIR directory ==="
         ls -la ./Oxygen/sonic3air/ || true
+        echo "=== OxygenEngine directory ==="
         ls -la ./Oxygen/oxygenengine/ || true
+        echo "=== Build directory contents ==="
+        find ./Oxygen/sonic3air/build/_cmake/build -name "*sonic3air*" -o -name "*oxygen*" 2>/dev/null || true
         
     - name: Upload Linux artifacts
       uses: actions/upload-artifact@v4
@@ -103,6 +127,10 @@ jobs:
       
     - name: Setup Visual Studio environment
       uses: ilammy/msvc-dev-cmd@v1
+      
+    - name: Clean build directory
+      run: Remove-Item -Recurse -Force -ErrorAction SilentlyContinue ./Oxygen/sonic3air/build/_cmake/build
+      shell: powershell
       
     - name: Create build directory
       run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build
@@ -162,6 +190,9 @@ jobs:
         brew update
         brew install cmake curl
         
+    - name: Clean build directory
+      run: rm -rf ./Oxygen/sonic3air/build/_cmake/build
+      
     - name: Create build directory
       run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build
       

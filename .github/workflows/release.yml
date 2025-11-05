@@ -116,6 +116,15 @@ jobs:
       if: matrix.platform == 'windows'
       uses: ilammy/msvc-dev-cmd@v1
       
+    - name: Clean build directory (Linux/macOS)
+      if: matrix.platform != 'windows'
+      run: rm -rf ./Oxygen/sonic3air/build/_cmake/build
+      
+    - name: Clean build directory (Windows)
+      if: matrix.platform == 'windows'
+      run: Remove-Item -Recurse -Force -ErrorAction SilentlyContinue ./Oxygen/sonic3air/build/_cmake/build
+      shell: powershell
+      
     - name: Create build directory
       run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build
       
