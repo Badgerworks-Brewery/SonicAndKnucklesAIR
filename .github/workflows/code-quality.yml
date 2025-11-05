@@ -1,0 +1,241 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  schedule:
+    # Run weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          g++ \
+          cmake \
+          cppcheck \
+          clang-tidy \
+          libgl1-mesa-dev \
+          libglu1-mesa-dev \
+          libasound2-dev \
+          libpulse-dev \
+          libxcomposite-dev \
+          libxxf86vm-dev \
+          libcurl4-openssl-dev
+          
+    - name: Create build directory
+      run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build
+      
+    - name: Configure CMake for analysis
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build
+      run: |
+        cmake -DCMAKE_BUILD_TYPE=Debug \
+              -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+              -DBUILD_OXYGEN_ENGINEAPP=ON \
+              -DBUILD_OXYGEN_SERVER=OFF \
+              -DBUILD_SDL_STATIC=ON \
+              -DUSE_DISCORD=OFF \
+              -DUSE_IMGUI=ON \
+              ..
+              
+    - name: Run cppcheck
+      run: |
+        echo "## CPPCheck Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        cppcheck --enable=all \
+                 --inconclusive \
+                 --xml \
+                 --xml-version=2 \
+                 --suppress=missingIncludeSystem \
+                 --suppress=unusedFunction \
+                 --suppress=unmatchedSuppression \
+                 --project=./Oxygen/sonic3air/build/_cmake/build/compile_commands.json \
+                 2> cppcheck-results.xml || true
+                 
+        # Convert XML to readable format for summary
+        if [ -f cppcheck-results.xml ]; then
+          echo "CPPCheck found the following issues:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -o 'msg="[^"]*"' cppcheck-results.xml | head -20 >> $GITHUB_STEP_SUMMARY || echo "No issues found" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        fi
+        
+    - name: Upload cppcheck results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: cppcheck-results
+        path: cppcheck-results.xml
+        retention-days: 30
+
+  build-sanitizers:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        sanitizer: [address, undefined, thread]
+        
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          g++ \
+          cmake \
+          libgl1-mesa-dev \
+          libglu1-mesa-dev \
+          libasound2-dev \
+          libpulse-dev \
+          libxcomposite-dev \
+          libxxf86vm-dev \
+          libcurl4-openssl-dev
+          
+    - name: Create build directory
+      run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build-${{ matrix.sanitizer }}
+      
+    - name: Configure CMake with sanitizers
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build-${{ matrix.sanitizer }}
+      run: |
+        cmake -DCMAKE_BUILD_TYPE=Debug \
+              -DCMAKE_CXX_FLAGS="-fsanitize=${{ matrix.sanitizer }} -fno-omit-frame-pointer -g" \
+              -DCMAKE_C_FLAGS="-fsanitize=${{ matrix.sanitizer }} -fno-omit-frame-pointer -g" \
+              -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=${{ matrix.sanitizer }}" \
+              -DBUILD_OXYGEN_ENGINEAPP=ON \
+              -DBUILD_OXYGEN_SERVER=OFF \
+              -DBUILD_SDL_STATIC=ON \
+              -DUSE_DISCORD=OFF \
+              -DUSE_IMGUI=ON \
+              ..
+              
+    - name: Build with ${{ matrix.sanitizer }} sanitizer
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build-${{ matrix.sanitizer }}
+      run: |
+        echo "Building with ${{ matrix.sanitizer }} sanitizer..."
+        cmake --build . -j $(nproc) || {
+          echo "❌ Build failed with ${{ matrix.sanitizer }} sanitizer" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        }
+        echo "✅ Build successful with ${{ matrix.sanitizer }} sanitizer" >> $GITHUB_STEP_SUMMARY
+
+  code-formatting:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Install clang-format
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-format
+        
+    - name: Check code formatting
+      run: |
+        echo "## Code Formatting Check" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Find all C++ source files
+        find . -name "*.cpp" -o -name "*.h" -o -name "*.hpp" | \
+        grep -E "(Oxygen|librmx)" | \
+        grep -v "external" | \
+        head -50 > files_to_check.txt
+        
+        if [ -s files_to_check.txt ]; then
+          echo "Checking formatting for $(wc -l < files_to_check.txt) files..." >> $GITHUB_STEP_SUMMARY
+          
+          # Check if files need formatting
+          NEEDS_FORMAT=0
+          while IFS= read -r file; do
+            if ! clang-format --dry-run --Werror "$file" 2>/dev/null; then
+              echo "❌ $file needs formatting" >> $GITHUB_STEP_SUMMARY
+              NEEDS_FORMAT=1
+            fi
+          done < files_to_check.txt
+          
+          if [ $NEEDS_FORMAT -eq 0 ]; then
+            echo "✅ All checked files are properly formatted" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Run \`clang-format -i <file>\` to fix formatting issues" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "No C++ files found to check" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Analyze dependencies
+      run: |
+        echo "## Dependency Analysis" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Check for external dependencies
+        echo "### External Libraries" >> $GITHUB_STEP_SUMMARY
+        echo "| Library | Location | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|----------|--------|" >> $GITHUB_STEP_SUMMARY
+        
+        # Check SDL2
+        if [ -d "framework/external/sdl" ]; then
+          echo "| SDL2 | framework/external/sdl | ✅ Present |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| SDL2 | framework/external/sdl | ❌ Missing |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Check Ogg/Vorbis
+        if [ -d "framework/external/ogg-vorbis" ]; then
+          echo "| Ogg/Vorbis | framework/external/ogg-vorbis | ✅ Present |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| Ogg/Vorbis | framework/external/ogg-vorbis | ❌ Missing |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Check zlib
+        if [ -d "framework/external/zlib" ]; then
+          echo "| zlib | framework/external/zlib | ✅ Present |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| zlib | framework/external/zlib | ❌ Missing |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Check ImGui
+        if [ -d "framework/external/imgui" ]; then
+          echo "| ImGui | framework/external/imgui | ✅ Present |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| ImGui | framework/external/imgui | ❌ Missing |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Project Structure" >> $GITHUB_STEP_SUMMARY
+        echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+        
+        for dir in "librmx" "Oxygen/lemonscript" "Oxygen/oxygenengine" "Oxygen/sonic3air"; do
+          if [ -d "$dir" ]; then
+            echo "| $dir | ✅ Present |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| $dir | ❌ Missing |" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
