@@ -1,1 +1,0 @@
-/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/minigzip.dir/link.d CMakeFiles/minigzip.dir/test/minigzip.c.o -o minigzip  -Wl,-rpath,/home/runner/work/SonicAndKnucklesAIR/SonicAndKnucklesAIR/Oxygen/sonic3air/build/_cmake/build/zlib libz.so.1.3.1

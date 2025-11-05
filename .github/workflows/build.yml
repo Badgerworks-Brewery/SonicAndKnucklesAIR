@@ -46,7 +46,10 @@ jobs:
           libxkbcommon-dev \
           libegl1-mesa-dev \
           libibus-1.0-dev \
-          fcitx-libs-dev
+          fcitx-libs-dev \
+          libxcb1-dev \
+          libxcb-keysyms1-dev \
+          libxcb-xkb-dev
           
     - name: Create build directory
       run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build
