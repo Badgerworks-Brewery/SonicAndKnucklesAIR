@@ -1,0 +1,246 @@
+name: Build Sonic 3 A.I.R.
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        build_type: [Release, Debug]
+        
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          g++ \
+          cmake \
+          libgl1-mesa-dev \
+          libglu1-mesa-dev \
+          libasound2-dev \
+          libpulse-dev \
+          libxcomposite-dev \
+          libxxf86vm-dev \
+          libcurl4-openssl-dev \
+          libx11-dev \
+          libxext-dev \
+          libxrandr-dev \
+          libxi-dev \
+          libxss-dev \
+          libxxf86vm-dev \
+          libxcursor-dev \
+          libxinerama-dev \
+          libwayland-dev \
+          libxkbcommon-dev \
+          libegl1-mesa-dev \
+          libibus-1.0-dev \
+          fcitx-libs-dev \
+          libxcb1-dev \
+          libxcb-keysyms1-dev \
+          libxcb-xkb-dev
+          
+    - name: Clean build directory
+      run: rm -rf ./Oxygen/sonic3air/build/_cmake/build
+      
+    - name: Create build directory
+      run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build
+      
+    - name: Verify external dependencies
+      run: |
+        echo "Checking external dependencies..."
+        echo "=== SDL2 ==="
+        ls -la ./framework/external/sdl/ || echo "❌ SDL2 not found"
+        echo "=== zlib ==="
+        ls -la ./framework/external/zlib/ || echo "❌ zlib not found"
+        echo "=== ogg-vorbis ==="
+        ls -la ./framework/external/ogg-vorbis/ || echo "❌ ogg-vorbis not found"
+        echo "=== ImGui ==="
+        ls -la ./framework/external/imgui/ || echo "❌ ImGui not found"
+        echo "=== Project structure ==="
+        ls -la ./librmx/ || echo "❌ librmx not found"
+        ls -la ./Oxygen/lemonscript/ || echo "❌ lemonscript not found"
+        ls -la ./Oxygen/oxygenengine/ || echo "❌ oxygenengine not found"
+        ls -la ./Oxygen/sonic3air/ || echo "❌ sonic3air not found"
+      
+    - name: Configure CMake
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build
+      run: |
+        cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DBUILD_OXYGEN_ENGINEAPP=ON \
+              -DBUILD_OXYGEN_SERVER=OFF \
+              -DBUILD_SDL_STATIC=ON \
+              -DUSE_DISCORD=OFF \
+              -DUSE_IMGUI=ON \
+              ..
+              
+    - name: Build project
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build
+      run: cmake --build . -j $(nproc)
+      
+    - name: Check build outputs
+      run: |
+        echo "Checking for built executables..."
+        echo "=== Sonic3AIR directory ==="
+        ls -la ./Oxygen/sonic3air/ || true
+        echo "=== OxygenEngine directory ==="
+        ls -la ./Oxygen/oxygenengine/ || true
+        echo "=== Build directory contents ==="
+        find ./Oxygen/sonic3air/build/_cmake/build -name "*sonic3air*" -o -name "*oxygen*" 2>/dev/null || true
+        
+    - name: Upload Linux artifacts
+      uses: actions/upload-artifact@v4
+      if: matrix.build_type == 'Release'
+      with:
+        name: sonic3air-linux-${{ matrix.build_type }}
+        path: |
+          ./Oxygen/sonic3air/sonic3air_linux
+          ./Oxygen/oxygenengine/oxygenapp_linux
+        retention-days: 30
+
+  build-windows:
+    runs-on: windows-latest
+    
+    strategy:
+      matrix:
+        build_type: [Release, Debug]
+        
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Setup Visual Studio environment
+      uses: ilammy/msvc-dev-cmd@v1
+      
+    - name: Clean build directory
+      run: Remove-Item -Recurse -Force -ErrorAction SilentlyContinue ./Oxygen/sonic3air/build/_cmake/build
+      shell: powershell
+      
+    - name: Create build directory
+      run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build
+      shell: bash
+      
+    - name: Configure CMake
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build
+      run: |
+        cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ^
+              -DBUILD_OXYGEN_ENGINEAPP=ON ^
+              -DBUILD_OXYGEN_SERVER=OFF ^
+              -DBUILD_SDL_STATIC=ON ^
+              -DUSE_DISCORD=ON ^
+              -DUSE_IMGUI=ON ^
+              -G "Visual Studio 17 2022" ^
+              -A x64 ^
+              ..
+      shell: cmd
+              
+    - name: Build project
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build
+      run: cmake --build . --config ${{ matrix.build_type }} -j %NUMBER_OF_PROCESSORS%
+      shell: cmd
+      
+    - name: Check build outputs
+      run: |
+        echo "Checking for built executables..."
+        dir /s *.exe
+      shell: cmd
+        
+    - name: Upload Windows artifacts
+      uses: actions/upload-artifact@v4
+      if: matrix.build_type == 'Release'
+      with:
+        name: sonic3air-windows-${{ matrix.build_type }}
+        path: |
+          ./Oxygen/sonic3air/*.exe
+          ./Oxygen/oxygenengine/*.exe
+          ./Oxygen/sonic3air/build/_cmake/build/${{ matrix.build_type }}/*.exe
+        retention-days: 30
+
+  build-macos:
+    runs-on: macos-latest
+    
+    strategy:
+      matrix:
+        build_type: [Release, Debug]
+        
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Install dependencies
+      run: |
+        brew update
+        brew install cmake curl
+        
+    - name: Clean build directory
+      run: rm -rf ./Oxygen/sonic3air/build/_cmake/build
+      
+    - name: Create build directory
+      run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build
+      
+    - name: Configure CMake
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build
+      run: |
+        cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DBUILD_OXYGEN_ENGINEAPP=ON \
+              -DBUILD_OXYGEN_SERVER=OFF \
+              -DBUILD_SDL_STATIC=ON \
+              -DUSE_DISCORD=OFF \
+              -DUSE_IMGUI=ON \
+              ..
+              
+    - name: Build project
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build
+      run: cmake --build . -j $(sysctl -n hw.ncpu)
+      
+    - name: Check build outputs
+      run: |
+        echo "Checking for built executables..."
+        ls -la ./Oxygen/sonic3air/ || true
+        ls -la ./Oxygen/oxygenengine/ || true
+        
+    - name: Upload macOS artifacts
+      uses: actions/upload-artifact@v4
+      if: matrix.build_type == 'Release'
+      with:
+        name: sonic3air-macos-${{ matrix.build_type }}
+        path: |
+          ./Oxygen/sonic3air/Sonic3AIR
+          ./Oxygen/oxygenengine/OxygenApp
+        retention-days: 30
+
+  build-summary:
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-windows, build-macos]
+    if: always()
+    
+    steps:
+    - name: Build Summary
+      run: |
+        echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Platform | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Linux    | ${{ needs.build-linux.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Windows  | ${{ needs.build-windows.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| macOS    | ${{ needs.build-macos.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Build completed at: $(date)" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,92 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  quick-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          g++ \
+          cmake \
+          libgl1-mesa-dev \
+          libglu1-mesa-dev \
+          libasound2-dev \
+          libpulse-dev \
+          libxcomposite-dev \
+          libxxf86vm-dev \
+          libcurl4-openssl-dev \
+          libx11-dev \
+          libxext-dev \
+          libxrandr-dev \
+          libxi-dev \
+          libxinerama-dev \
+          libxcursor-dev \
+          libxss-dev \
+          libxcb1-dev \
+          libxcb-keysyms1-dev \
+          libxcb-xkb-dev
+          
+    - name: Clean build directory
+      run: rm -rf ./Oxygen/sonic3air/build/_cmake/build
+      
+    - name: Create build directory
+      run: mkdir -p ./Oxygen/sonic3air/build/_cmake/build
+      
+    - name: Verify external dependencies
+      run: |
+        echo "Checking external dependencies..."
+        echo "=== SDL2 ==="
+        ls -la ./framework/external/sdl/ || echo "❌ SDL2 not found"
+        echo "=== zlib ==="
+        ls -la ./framework/external/zlib/ || echo "❌ zlib not found"
+        echo "=== ogg-vorbis ==="
+        ls -la ./framework/external/ogg-vorbis/ || echo "❌ ogg-vorbis not found"
+        echo "=== ImGui ==="
+        ls -la ./framework/external/imgui/ || echo "❌ ImGui not found"
+      
+    - name: Configure CMake (Release)
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build
+      run: |
+        cmake -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_OXYGEN_ENGINEAPP=ON \
+              -DBUILD_OXYGEN_SERVER=OFF \
+              -DBUILD_SDL_STATIC=ON \
+              -DUSE_DISCORD=OFF \
+              -DUSE_IMGUI=ON \
+              ..
+              
+    - name: Build project
+      working-directory: ./Oxygen/sonic3air/build/_cmake/build
+      run: cmake --build . -j $(nproc)
+      
+    - name: Verify build success
+      run: |
+        echo "Build completed successfully!"
+        if [ -f "./Oxygen/sonic3air/sonic3air_linux" ]; then
+          echo "✅ Sonic3AIR executable found"
+          ls -la ./Oxygen/sonic3air/sonic3air_linux
+        else
+          echo "❌ Sonic3AIR executable not found"
+          exit 1
+        fi
+        
+        if [ -f "./Oxygen/oxygenengine/oxygenapp_linux" ]; then
+          echo "✅ OxygenApp executable found"
+          ls -la ./Oxygen/oxygenengine/oxygenapp_linux
+        else
+          echo "⚠️  OxygenApp executable not found (this might be expected)"
+        fi
