@@ -1,2 +1,0 @@
-/usr/bin/ar qc libminizip.a CMakeFiles/minizip.dir/home/runner/work/SonicAndKnucklesAIR/SonicAndKnucklesAIR/framework/external/zlib/zlib/contrib/minizip/ioapi.c.o CMakeFiles/minizip.dir/home/runner/work/SonicAndKnucklesAIR/SonicAndKnucklesAIR/framework/external/zlib/zlib/contrib/minizip/unzip.c.o CMakeFiles/minizip.dir/home/runner/work/SonicAndKnucklesAIR/SonicAndKnucklesAIR/framework/external/zlib/zlib/contrib/minizip/zip.c.o
-/usr/bin/ranlib libminizip.a
