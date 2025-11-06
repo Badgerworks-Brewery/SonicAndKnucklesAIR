@@ -311,7 +311,10 @@ if (UNIX AND NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
 	target_link_libraries(oxygen atomic)	# Needed when building on Raspberry Pi
 endif()
 
-if (UNIX)
+# Link curl library
+if (WIN32)
+	target_link_libraries(oxygen libcurl)
+elseif (UNIX)
 	find_package(CURL REQUIRED)
 	target_link_libraries(oxygen CURL::libcurl)
 endif()
