@@ -375,11 +375,19 @@ if (USE_DISCORD)
 
 	add_library(discord_game_sdk_source ${DISCORD_SOURCES})
 
-	link_directories("${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86_64")
+	# Set platform-specific Discord library directory
+	if (WIN32)
+		link_directories("${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86")
+	else()
+		link_directories("${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86_64")
+	endif()
 
 	target_link_libraries(discord_game_sdk_source discord_game_sdk)
 
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='$ORIGIN'")
+	# Set rpath only on Unix systems
+	if (UNIX)
+		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='$ORIGIN'")
+	endif()
 endif()
 
 
