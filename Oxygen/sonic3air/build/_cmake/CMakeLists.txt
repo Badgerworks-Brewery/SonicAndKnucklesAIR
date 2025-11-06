@@ -113,6 +113,27 @@ add_subdirectory(${WORKSPACE_DIR}/framework/external/zlib/zlib zlib)
 
 
 
+# curl library
+if (WIN32)
+	# Build curl from source on Windows
+	set(BUILD_CURL_EXE OFF CACHE BOOL "")
+	set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
+	set(CURL_STATICLIB ON CACHE BOOL "")
+	set(HTTP_ONLY ON CACHE BOOL "")
+	set(CMAKE_USE_SCHANNEL ON CACHE BOOL "")
+	set(CURL_DISABLE_LDAP ON CACHE BOOL "")
+	set(BUILD_TESTING OFF CACHE BOOL "")
+	
+	add_subdirectory(${WORKSPACE_DIR}/framework/external/curl/curl curl)
+	include_directories(${WORKSPACE_DIR}/framework/external/curl/curl/include)
+elseif (UNIX)
+	# Use system curl on Unix
+	find_package(CURL REQUIRED)
+	include_directories(${CURL_INCLUDE_DIRS})
+endif()
+
+
+
 include_directories(${WORKSPACE_DIR}/framework/external/ogg-vorbis/libogg/include)
 include_directories(${WORKSPACE_DIR}/framework/external/ogg-vorbis/libvorbis/include)
 include_directories(${WORKSPACE_DIR}/framework/external/ogg-vorbis/libvorbis/lib)
