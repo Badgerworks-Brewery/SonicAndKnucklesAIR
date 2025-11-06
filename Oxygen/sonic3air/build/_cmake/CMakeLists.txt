@@ -375,14 +375,15 @@ if (USE_DISCORD)
 
 	add_library(discord_game_sdk_source ${DISCORD_SOURCES})
 
-	# Set platform-specific Discord library directory
+	# Set platform-specific Discord library directory and link library
 	if (WIN32)
 		link_directories("${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86")
+		# On Windows, the library is named discord_game_sdk.dll.lib
+		target_link_libraries(discord_game_sdk_source "${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86/discord_game_sdk.dll.lib")
 	else()
 		link_directories("${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86_64")
+		target_link_libraries(discord_game_sdk_source discord_game_sdk)
 	endif()
-
-	target_link_libraries(discord_game_sdk_source discord_game_sdk)
 
 	# Set rpath only on Unix systems
 	if (UNIX)
