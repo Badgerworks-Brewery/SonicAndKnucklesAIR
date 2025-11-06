@@ -26,12 +26,14 @@ endif()
 # Determine whether to support discord integration
 if (USE_DISCORD)
 	set(USE_DISCORD ON)
-else()
-	add_definitions(-DNO_DISCORD)
 endif()
 if (UNIX AND NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
 	link_directories(/opt/vc/lib)	# Needed when building on Raspberry Pi
 	set(USE_DISCORD OFF)
+endif()
+
+# Add NO_DISCORD definition if Discord is disabled
+if (NOT USE_DISCORD)
 	add_definitions(-DNO_DISCORD)
 endif()
 
