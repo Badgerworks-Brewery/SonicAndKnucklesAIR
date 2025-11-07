@@ -377,9 +377,27 @@ if (USE_DISCORD)
 
 	# Set platform-specific Discord library directory and link library
 	if (WIN32)
-		# On Windows, use the .dll.lib import library
-		# Link directly to the file without letting CMake add extensions
-		target_link_libraries(discord_game_sdk_source "${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86/discord_game_sdk.dll.lib")
+		# On Windows, detect architecture and use appropriate library directory
+		if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+			# 64-bit build - use x86_64 directory
+			set(DISCORD_LIB_DIR "${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86_64")
+		else()
+			# 32-bit build - use x86 directory
+			set(DISCORD_LIB_DIR "${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86")
+		endif()
+		
+		# Use find_library to locate the .dll.lib file properly
+		find_library(DISCORD_GAME_SDK_LIB
+			NAMES discord_game_sdk.dll
+			PATHS ${DISCORD_LIB_DIR}
+			NO_DEFAULT_PATH
+		)
+		
+		if(DISCORD_GAME_SDK_LIB)
+			target_link_libraries(discord_game_sdk_source ${DISCORD_GAME_SDK_LIB})
+		else()
+			message(WARNING "Discord Game SDK library not found in ${DISCORD_LIB_DIR}")
+		endif()
 	else()
 		link_directories("${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86_64")
 		target_link_libraries(discord_game_sdk_source discord_game_sdk)
