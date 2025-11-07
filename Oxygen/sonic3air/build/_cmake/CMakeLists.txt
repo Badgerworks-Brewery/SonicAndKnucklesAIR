@@ -378,12 +378,8 @@ if (USE_DISCORD)
 	# Set platform-specific Discord library directory and link library
 	if (WIN32)
 		# On Windows, use the .dll.lib import library
-		# Create an imported library target to avoid CMake adding .lib suffix
-		add_library(discord_game_sdk STATIC IMPORTED)
-		set_target_properties(discord_game_sdk PROPERTIES
-			IMPORTED_LOCATION "${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86/discord_game_sdk.dll.lib"
-		)
-		target_link_libraries(discord_game_sdk_source discord_game_sdk)
+		# Link directly to the file without letting CMake add extensions
+		target_link_libraries(discord_game_sdk_source "${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86/discord_game_sdk.dll.lib")
 	else()
 		link_directories("${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86_64")
 		target_link_libraries(discord_game_sdk_source discord_game_sdk)
