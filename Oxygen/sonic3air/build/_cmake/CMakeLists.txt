@@ -313,10 +313,12 @@ endif()
 
 # Link curl library
 if (WIN32)
-	target_link_libraries(oxygen libcurl)
+	# When building curl from source on Windows, link to the libcurl target
+	# Use PUBLIC linkage so that targets linking to oxygen also get curl
+	target_link_libraries(oxygen PUBLIC libcurl)
 elseif (UNIX)
 	find_package(CURL REQUIRED)
-	target_link_libraries(oxygen CURL::libcurl)
+	target_link_libraries(oxygen PUBLIC CURL::libcurl)
 endif()
 
 
