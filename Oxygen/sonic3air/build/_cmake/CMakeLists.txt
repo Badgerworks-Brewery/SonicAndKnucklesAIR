@@ -298,17 +298,17 @@ if (NOT CMAKE_VERSION VERSION_LESS "3.16.0")
 	#target_precompile_headers(oxygen PRIVATE ${WORKSPACE_DIR}/Oxygen/oxygenengine/source/oxygen/pch.h)
 endif()
 
-target_link_libraries(oxygen minizip)
-target_link_libraries(oxygen rmxmedia)
-target_link_libraries(oxygen rmxext_oggvorbis)
-target_link_libraries(oxygen lemonscript)
+target_link_libraries(oxygen PRIVATE minizip)
+target_link_libraries(oxygen PRIVATE rmxmedia)
+target_link_libraries(oxygen PRIVATE rmxext_oggvorbis)
+target_link_libraries(oxygen PRIVATE lemonscript)
 if (USE_IMGUI)
-	target_link_libraries(oxygen imgui)
+	target_link_libraries(oxygen PRIVATE imgui)
 endif()
-target_link_libraries(oxygen oxygen_netcore)
+target_link_libraries(oxygen PRIVATE oxygen_netcore)
 
 if (UNIX AND NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
-	target_link_libraries(oxygen atomic)	# Needed when building on Raspberry Pi
+	target_link_libraries(oxygen PRIVATE atomic)	# Needed when building on Raspberry Pi
 endif()
 
 # Link curl library
