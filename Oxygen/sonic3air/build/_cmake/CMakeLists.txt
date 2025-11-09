@@ -94,6 +94,7 @@ find_package(OpenGL REQUIRED)
 if (BUILD_SDL_STATIC)
 	set(SDL_STATIC ON)
 	set(SDL_SHARED OFF)
+	include_directories(SDL/include)
 else()
 	set(SDL_STATIC OFF)
 	set(SDL_SHARED ON)
@@ -104,11 +105,6 @@ else()
 endif()
 
 add_subdirectory(${WORKSPACE_DIR}/framework/external/sdl/SDL2 SDL)
-
-# Add SDL2 include directories after subdirectory is added
-if (BUILD_SDL_STATIC)
-	include_directories(${CMAKE_CURRENT_BINARY_DIR}/SDL/include)
-endif()
 
 
 # zlib sources as virtual subdirectory "zlib"
