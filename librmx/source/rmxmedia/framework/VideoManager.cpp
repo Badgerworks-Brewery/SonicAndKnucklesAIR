@@ -11,11 +11,7 @@
 #if defined(PLATFORM_WINDOWS)
 	#pragma warning(disable: 4005)	// Macro redefinition of APIENTRY
 
-	#if defined(__GNUC__)
-		#include <SDL2/SDL_syswm.h>
-	#else
-		#include <SDL/SDL_syswm.h>
-	#endif
+	#include <SDL2/SDL_syswm.h>
 
 	#define WIN32_LEAN_AND_MEAN
 	#include "CleanWindowsInclude.h"

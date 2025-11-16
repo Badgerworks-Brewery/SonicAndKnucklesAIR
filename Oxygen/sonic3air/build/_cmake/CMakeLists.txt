@@ -27,9 +27,14 @@ endif()
 if (USE_DISCORD)
 	set(USE_DISCORD ON)
 endif()
-if (UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
+if (UNIX AND NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
 	link_directories(/opt/vc/lib)	# Needed when building on Raspberry Pi
 	set(USE_DISCORD OFF)
+endif()
+
+# Add NO_DISCORD definition if Discord is disabled
+if (NOT USE_DISCORD)
+	add_definitions(-DNO_DISCORD)
 endif()
 
 
@@ -93,7 +98,7 @@ if (BUILD_SDL_STATIC)
 else()
 	set(SDL_STATIC OFF)
 	set(SDL_SHARED ON)
-	if (UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
+	if (UNIX AND NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
 		include(FindPkgConfig)
 		pkg_check_modules(SDL2 sdl2 REQUIRED)
 	endif()
@@ -105,6 +110,27 @@ add_subdirectory(${WORKSPACE_DIR}/framework/external/sdl/SDL2 SDL)
 # zlib sources as virtual subdirectory "zlib"
 include_directories(${WORKSPACE_DIR}/framework/external/zlib/zlib)		# Included before add_subdirectory so that the examples will build
 add_subdirectory(${WORKSPACE_DIR}/framework/external/zlib/zlib zlib)
+
+
+
+# curl library
+if (WIN32)
+	# Build curl from source on Windows
+	set(BUILD_CURL_EXE OFF CACHE BOOL "")
+	set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
+	set(CURL_STATICLIB ON CACHE BOOL "")
+	set(HTTP_ONLY ON CACHE BOOL "")
+	set(CMAKE_USE_SCHANNEL ON CACHE BOOL "")
+	set(CURL_DISABLE_LDAP ON CACHE BOOL "")
+	set(BUILD_TESTING OFF CACHE BOOL "")
+	
+	add_subdirectory(${WORKSPACE_DIR}/framework/external/curl/curl curl)
+	include_directories(${WORKSPACE_DIR}/framework/external/curl/curl/include)
+elseif (UNIX)
+	# Use system curl on Unix
+	find_package(CURL REQUIRED)
+	include_directories(${CURL_INCLUDE_DIRS})
+endif()
 
 
 
@@ -164,7 +190,7 @@ if (USE_IMGUI)
 		target_link_libraries(imgui SDL2-static)
 	else()
 		target_link_libraries(imgui SDL2)
-		if (UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
+		if (UNIX AND NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
 			target_link_libraries(imgui pthread)
 			target_link_libraries(imgui dl)
 		endif()
@@ -272,22 +298,27 @@ if (NOT CMAKE_VERSION VERSION_LESS "3.16.0")
 	#target_precompile_headers(oxygen PRIVATE ${WORKSPACE_DIR}/Oxygen/oxygenengine/source/oxygen/pch.h)
 endif()
 
-target_link_libraries(oxygen minizip)
-target_link_libraries(oxygen rmxmedia)
-target_link_libraries(oxygen rmxext_oggvorbis)
-target_link_libraries(oxygen lemonscript)
+target_link_libraries(oxygen PRIVATE minizip)
+target_link_libraries(oxygen PRIVATE rmxmedia)
+target_link_libraries(oxygen PRIVATE rmxext_oggvorbis)
+target_link_libraries(oxygen PRIVATE lemonscript)
 if (USE_IMGUI)
-	target_link_libraries(oxygen imgui)
+	target_link_libraries(oxygen PRIVATE imgui)
 endif()
-target_link_libraries(oxygen oxygen_netcore)
+target_link_libraries(oxygen PRIVATE oxygen_netcore)
 
-if (UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
-	target_link_libraries(oxygen atomic)	# Needed when building on Raspberry Pi
+if (UNIX AND NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
+	target_link_libraries(oxygen PRIVATE atomic)	# Needed when building on Raspberry Pi
 endif()
 
-if (UNIX)
+# Link curl library
+if (WIN32)
+	# When building curl from source on Windows, link to the libcurl target
+	# Use PUBLIC linkage so that targets linking to oxygen also get curl
+	target_link_libraries(oxygen PUBLIC libcurl)
+elseif (UNIX)
 	find_package(CURL REQUIRED)
-	target_link_libraries(oxygen CURL::libcurl)
+	target_link_libraries(oxygen PUBLIC CURL::libcurl)
 endif()
 
 
@@ -346,11 +377,38 @@ if (USE_DISCORD)
 
 	add_library(discord_game_sdk_source ${DISCORD_SOURCES})
 
-	link_directories("${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86_64")
+	# Set platform-specific Discord library directory and link library
+	if (WIN32)
+		# On Windows, detect architecture and use appropriate library directory
+		if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+			# 64-bit build - use x86_64 directory
+			set(DISCORD_LIB_DIR "${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86_64")
+		else()
+			# 32-bit build - use x86 directory
+			set(DISCORD_LIB_DIR "${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86")
+		endif()
+		
+		# Use find_library to locate the .dll.lib file properly
+		find_library(DISCORD_GAME_SDK_LIB
+			NAMES discord_game_sdk.dll
+			PATHS ${DISCORD_LIB_DIR}
+			NO_DEFAULT_PATH
+		)
+		
+		if(DISCORD_GAME_SDK_LIB)
+			target_link_libraries(discord_game_sdk_source ${DISCORD_GAME_SDK_LIB})
+		else()
+			message(WARNING "Discord Game SDK library not found in ${DISCORD_LIB_DIR}")
+		endif()
+	else()
+		link_directories("${WORKSPACE_DIR}/Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86_64")
+		target_link_libraries(discord_game_sdk_source discord_game_sdk)
+	endif()
 
-	target_link_libraries(discord_game_sdk_source discord_game_sdk)
-
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='$ORIGIN'")
+	# Set rpath only on Unix systems
+	if (UNIX)
+		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='$ORIGIN'")
+	endif()
 endif()
 
 
