@@ -27,6 +27,28 @@ This repository is split into several different projects:
 * S3AIR-specific C++ code, scripts and data in the "Oxygen/sonic3air" directory. Yes, that's what it's named.
 
 
+## Sonic & Knuckles Collection (PC, 1997) support
+
+Besides the original Genesis/Mega Drive ROM, the game can also be run from
+`SONIC3K.EXE`, the executable of the official 1997 Windows PC port
+("Sonic & Knuckles Collection"). On first launch, when prompted for a ROM,
+point the file selection dialog at your own legitimately-owned `SONIC3K.EXE`
+instead of a `.bin` ROM file.
+
+Technical background: that executable embeds the same Genesis-address-mapped
+game data used by the Mega Drive ROM, copied verbatim at matching file byte
+offsets (i.e. Genesis address `X` sits at file offset `X`, verified against a
+retail copy). It does not contain a usable 68k boot header, since the PC port
+never executes 68k code -- Oxygen's lemonscript reimplementation runs the game
+logic directly against the extracted data table addresses instead. This is
+configured via the `S3K_OldPC` entry in `Oxygen/sonic3air/oxygenproject.json`
+(`RomType: "PC"`, `PCDataOffset`, `PCDataSize`).
+
+Limitations: audio in the retail PC executable uses General MIDI/PCM rather
+than the Genesis FM synth; S3AIR's own remastered soundtrack is used instead
+regardless of ROM source, so this doesn't currently affect playback.
+
+
 ## How to build
 
 For information on how to build for different platforms, find the readme files in the respective subdirectories of "Oxygen/sonic3air/build":
