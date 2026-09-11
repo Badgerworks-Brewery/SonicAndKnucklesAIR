@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -155,13 +155,8 @@ void Framebuffer::attachRenderbuffer(GLenum attachment, GLuint handle)
 
 void Framebuffer::createRenderbuffer(GLenum attachment, GLenum internalformat)
 {
-	Renderbuffer* renderbuffer = nullptr;
-	Renderbuffer** found = mapFind(mRenderbuffers, attachment);
-	if (nullptr != found)
-	{
-		renderbuffer = *found;
-	}
-	else
+	Renderbuffer* renderbuffer = mapFindOrDefault(mRenderbuffers, attachment, nullptr);
+	if (nullptr == renderbuffer)
 	{
 		renderbuffer = new Renderbuffer();
 		mRenderbuffers.emplace(attachment, renderbuffer);

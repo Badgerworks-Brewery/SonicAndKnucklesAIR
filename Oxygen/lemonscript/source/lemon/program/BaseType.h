@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -30,19 +30,6 @@ namespace lemon
 		FLOAT	  = 0x20,
 		DOUBLE	  = 0x21
 	};
-
-	struct BaseTypeHelper
-	{
-		inline static bool isIntegerType(BaseType baseType)			{ return ((uint8)baseType & 0xf0) == 0x10; }
-		inline static bool isFloatingPointType(BaseType baseType)	{ return ((uint8)baseType & 0xf0) == 0x20; }
-
-		inline static uint8 getIntegerSizeFlags(BaseType baseType)	{ return (uint8)baseType & 0x03; }
-		inline static bool isIntegerSigned(BaseType baseType)		{ return (uint8)baseType & 0x08; }
-
-		inline static BaseType makeIntegerSigned(BaseType baseType)		{ return isIntegerType(baseType) ? (BaseType)((uint8)baseType | 0x08)  : baseType; }
-		inline static BaseType makeIntegerUnsigned(BaseType baseType)	{ return isIntegerType(baseType) ? (BaseType)((uint8)baseType & ~0x0c) : baseType; }	// Remove flag 0x08 (signed flag) - and also 0x04 to convert CONST_INT to UINT64
-	};
-
 
 
 	enum class BaseCastType : uint8
@@ -119,6 +106,22 @@ namespace lemon
 		DOUBLE_TO_FLOAT   = 0x41,
 
 		#undef BASE_CAST_TYPE
+	};
+
+
+	struct BaseTypeHelper
+	{
+		inline static bool isIntegerType(BaseType baseType)			{ return ((uint8)baseType & 0xf0) == 0x10; }
+		inline static bool isFloatingPointType(BaseType baseType)	{ return ((uint8)baseType & 0xf0) == 0x20; }
+
+		inline static uint8 getIntegerSizeFlags(BaseType baseType)	{ return (uint8)baseType & 0x03; }
+		inline static bool isIntegerSigned(BaseType baseType)		{ return (uint8)baseType & 0x08; }
+
+		inline static BaseType makeIntegerSigned(BaseType baseType)		{ return isIntegerType(baseType) ? (BaseType)((uint8)baseType | 0x08)  : baseType; }
+		inline static BaseType makeIntegerUnsigned(BaseType baseType)	{ return isIntegerType(baseType) ? (BaseType)((uint8)baseType & ~0x0c) : baseType; }	// Remove flag 0x08 (signed flag) - and also 0x04 to convert CONST_INT to UINT64
+
+		static size_t getSizeOfBaseType(BaseType baseType);
+		static bool isPureIntegerBaseCast(BaseCastType baseCastType);
 	};
 
 }

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -361,6 +361,7 @@ std::wstring PlatformFunctions::getAppDataPath()
 	{
 		std::wstring result(path);
 		CoTaskMemFree(path);
+		FTX::FileSystem->normalizePath(result, false);	// Do not add a slash at the end
 		return result;
 	}
 #elif defined(PLATFORM_LINUX)
@@ -425,7 +426,7 @@ void PlatformFunctions::showMessageBox(const std::string& caption, const std::st
 {
 #ifdef PLATFORM_WINDOWS
 
-	MessageBoxA(nullptr, text.c_str(), caption.c_str(), MB_OK | MB_ICONEXCLAMATION);
+	MessageBoxA((HWND)FTX::Video->getNativeWindowHandle(), text.c_str(), caption.c_str(), MB_OK | MB_ICONEXCLAMATION);
 
 #else
 
@@ -587,7 +588,7 @@ bool PlatformFunctions::openApplicationExternal(const std::wstring& path, const 
 #if defined(PLATFORM_WINDOWS)
 	return ::ShellExecuteW(nullptr, L"open", path.c_str(), arguments.c_str(), directory.c_str(), SW_SHOW);
 #elif defined(PLATFORM_LINUX)
-	return system(*WString(path + L" " + arguments).toUTF8());
+	return system(rmx::convertToUTF8(path + L" " + arguments).c_str());
 #else
 	// Not implemented for other platforms
 	return false;
@@ -619,16 +620,16 @@ bool PlatformFunctions::copyToClipboard(const std::string& string)
 
 bool PlatformFunctions::copyToClipboard(std::wstring_view string)
 {
-	return (SDL_SetClipboardText(*WString(string).toUTF8()) == 0);
+	return (SDL_SetClipboardText(rmx::convertToUTF8(string).c_str()) == 0);
 }
 
-bool PlatformFunctions::pasteFromClipboard(WString& outString)
+bool PlatformFunctions::pasteFromClipboard(std::wstring& outString)
 {
 	if (!SDL_HasClipboardText())
 		return false;
 
 	char* utf8String = SDL_GetClipboardText();
-	outString.fromUTF8(std::string(utf8String));
+	outString = rmx::convertFromUTF8(utf8String);
 	SDL_free(utf8String);
 	return !outString.empty();
 }

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -8,7 +8,7 @@
 
 #include "oxygen/pch.h"
 #include "oxygen/resources/FontCollection.h"
-#include "oxygen/application/modding/ModManager.h"
+#include "oxygen/engine/modding/ModManager.h"
 #include "oxygen/rendering/RenderResources.h"
 
 #include "lemon/compiler/parser/Parser.h"
@@ -165,8 +165,7 @@ FontCollection::~FontCollection()
 Font* FontCollection::getFontByKey(uint64 keyHash)
 {
 	// Try to find in map
-	Font** font = mapFind(mFontsByKeyHash, keyHash);
-	return (nullptr != font) ? *font : nullptr;
+	return mapFindOrDefault(mFontsByKeyHash, keyHash, nullptr);
 }
 
 Font* FontCollection::createFontByKey(std::string_view key)

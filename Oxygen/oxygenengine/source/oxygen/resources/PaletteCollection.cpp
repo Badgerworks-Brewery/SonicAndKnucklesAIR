@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -9,7 +9,7 @@
 #include "oxygen/pch.h"
 #include "oxygen/resources/PaletteCollection.h"
 #include "oxygen/resources/SpriteCollection.h"
-#include "oxygen/application/modding/ModManager.h"
+#include "oxygen/engine/modding/ModManager.h"
 
 
 void PaletteCollection::clear()
@@ -39,11 +39,8 @@ const PaletteBase* PaletteCollection::getPalette(uint64 key, uint8 line) const
 	if (nullptr != palette)
 		return palette;
 
-	PaletteBase*const* palettePtr = mapFind(mRedirections, key + line);
-	if (nullptr != palettePtr)
-		return *palettePtr;
-
-	return nullptr;
+	palette = mapFindOrDefault(mRedirections, key + line, nullptr);
+	return palette;
 }
 
 void PaletteCollection::loadPalettesInDirectory(const std::wstring& path, bool isModded)
@@ -79,8 +76,8 @@ void PaletteCollection::loadPalettesInDirectory(const std::wstring& path, bool i
 		name.remove(name.length() - 4, 4);
 
 		const uint64 paletteKey = rmx::getMurmur2_64(name);		// Hash is the key of the first palette, the others are enumerated from there
-		const int numLines = std::min(bitmap.getHeight(), 64);
-		const int numColorsPerLine = std::min(bitmap.getWidth(), 64);
+		const int numLines = std::min(bitmap.getHeight(), 256);
+		const int numColorsPerLine = std::min(bitmap.getWidth(), 256);
 
 		for (int line = 0; line < numLines; ++line)
 		{

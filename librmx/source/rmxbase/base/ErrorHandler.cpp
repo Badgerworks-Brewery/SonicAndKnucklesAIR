@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -134,7 +134,8 @@ namespace
 		}
 
 		// Show the message box
-		return MessageBoxA(nullptr, stringBuilder.str().c_str(), caption.c_str(), type | icon);
+		const uint64 handle = (rmx::ErrorHandling::mNativeWindowHandleProvider) ? rmx::ErrorHandling::mNativeWindowHandleProvider() : 0;
+		return MessageBoxA((HWND)handle, stringBuilder.str().c_str(), caption.c_str(), type | icon);
 	}
 
 	int showWindowsMessageBox(rmx::ErrorHandling::MessageBoxInterface::DialogType dialogType, rmx::ErrorSeverity errorSeverity, const std::string& message)

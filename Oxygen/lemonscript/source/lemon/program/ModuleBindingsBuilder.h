@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -9,7 +9,7 @@
 #pragma once
 
 #include "lemon/program/DataType.h"
-#include "lemon/program/FunctionWrapper.h"
+#include "lemon/program/function/FunctionWrapper.h"
 #include "lemon/program/Module.h"
 
 
@@ -153,6 +153,8 @@ namespace lemon
 
 	public:
 		explicit inline ModuleBindingsBuilder(Module& module) : mModule(module) {}
+
+		Module& getModule() const  { return mModule; }
 
 		template<typename T, typename S>
 		inline void addConstant(FlyweightString name, S value)

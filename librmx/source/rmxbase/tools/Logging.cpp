@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -10,7 +10,7 @@
 
 #if defined(PLATFORM_WINDOWS)
 	#define WIN32_LEAN_AND_MEAN
-	#include <CleanWindowsInclude.h>
+	#include "CleanWindowsInclude.h"
 #elif defined(PLATFORM_ANDROID)
 	#include <android/log.h>
 #elif defined(PLATFORM_VITA)

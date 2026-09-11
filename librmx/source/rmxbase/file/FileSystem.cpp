@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -169,11 +169,11 @@ namespace rmx
 		return nullptr;
 	}
 
-	void FileSystem::createDirectory(std::wstring_view path)
+	bool FileSystem::createDirectory(std::wstring_view path)
 	{
 		// TODO: Use file providers here as well
 		mTempPath2 = normalizePath(path, mTempPath2, true);
-		FileIO::createDirectory(mTempPath2);
+		return FileIO::createDirectory(mTempPath2);
 	}
 
 	void FileSystem::listFiles(std::wstring_view path, bool recursive, std::vector<rmx::FileIO::FileEntry>& outEntries)
@@ -232,7 +232,7 @@ namespace rmx
 			{
 				// Handle the special case that the mount point includes the given path
 				//  -> In this case, we want the mount point itself to act as a virtual directory
-				if (startsWith(mountPoint.mMountPoint, mTempPath2))
+				if (!mTempPath2.empty() && startsWith(mountPoint.mMountPoint, mTempPath2))
 				{
 					const size_t startPos = mTempPath2.size();
 					size_t endPos = startPos;
@@ -246,6 +246,13 @@ namespace rmx
 					}
 				}
 			}
+		}
+
+		// Sort and also remove duplicates (because the special case mentioned above can easily add the same directory multiple times)
+		if (outEntries.size() >= 2)
+		{
+			std::sort(outEntries.begin(), outEntries.end(), [](const std::wstring& a, const std::wstring& b) { return a < b; } );
+			outEntries.erase(std::unique(outEntries.begin(), outEntries.end()), outEntries.end());
 		}
 	}
 
@@ -271,10 +278,42 @@ namespace rmx
 		return false;
 	}
 
+	bool FileSystem::renameDirectory(std::wstring_view oldPath, std::wstring_view newPath)
+	{
+		mTempPath2 = normalizePath(oldPath, mTempPath2, true);
+		std::wstring newTempPath(newPath);
+		normalizePath(newTempPath, true);
+		for (MountPoint& mountPoint : mMountPoints)
+		{
+			const std::wstring* oldLocalPath = applyMountPoint(mountPoint, mTempPath2, mTempPath);
+			if (nullptr != oldLocalPath)
+			{
+				std::wstring tempPathForMounting;
+				const std::wstring* newLocalPath = applyMountPoint(mountPoint, newTempPath, tempPathForMounting);
+				if (nullptr != newLocalPath)
+				{
+					if (mountPoint.mFileProvider->renameDirectory(*oldLocalPath, *newLocalPath))
+						return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	bool FileSystem::removeFile(std::wstring_view path)
 	{
 		// TODO: Use file providers here as well
-		return FileIO::removeFile(path);
+		const bool result = FileIO::removeFile(path);
+		mLastErrorCode = FileIO::mLastErrorCode;
+		return result;
+	}
+
+	bool FileSystem::removeDirectory(std::wstring_view path)
+	{
+		// TODO: Use file providers here as well
+		const bool result = FileIO::removeDirectory(path);
+		mLastErrorCode = FileIO::mLastErrorCode;
+		return result;
 	}
 
 	bool FileSystem::exists(std::string_view path)

@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -47,33 +47,15 @@ namespace rmx
 		return Json::Value();
 	}
 
-	Json::Value JsonHelper::loadFromStream(std::istream& stream)
-	{
-		if (!stream.good())
-			return Json::Value();
-
-		stream.seekg(0, std::ios::end);
-		const uint32 size = (uint32)stream.tellg();
-		stream.seekg(0, std::ios::beg);
-
-		std::vector<uint8> content;
-		content.resize(size);
-		stream.read((char*)content.data(), size);
-
-		return loadFromMemory(content);
-	}
-
-	Json::Value JsonHelper::loadFromMemory(const std::vector<uint8>& content, std::string* outErrors)
+	Json::Value JsonHelper::loadFromStream(std::istream& stream, std::string* outErrors)
 	{
 		Json::Value root;
-		vectorwrapbuf<char> databuf(reinterpret_cast<std::vector<char>&>(const_cast<std::vector<uint8>&>(content)));
-		std::istream str(&databuf);
-		if (str.good())
+		if (stream.good())
 		{
 			Json::CharReaderBuilder rbuilder;
 			rbuilder["collectComments"] = false;
 			std::string errs;
-			Json::parseFromStream(rbuilder, str, &root, &errs);
+			Json::parseFromStream(rbuilder, stream, &root, &errs);
 
 			if (!errs.empty())
 			{
@@ -88,6 +70,19 @@ namespace rmx
 			}
 		}
 		return root;
+	}
+
+	Json::Value JsonHelper::loadFromString(const std::string& content)
+	{
+		std::stringstream stream(content);
+		return loadFromStream(stream);
+	}
+
+	Json::Value JsonHelper::loadFromMemory(const std::vector<uint8>& content, std::string* outErrors)
+	{
+		vectorwrapbuf<char> databuf(reinterpret_cast<std::vector<char>&>(const_cast<std::vector<uint8>&>(content)));
+		std::istream stream(&databuf);
+		return loadFromStream(stream, outErrors);
 	}
 
 	bool JsonHelper::saveFile(const std::wstring& filename, const Json::Value& value)
@@ -136,7 +131,7 @@ namespace rmx
 		}
 		else if (value.isString())
 		{
-			output = String(value.asString()).parseInt();
+			output = (int)rmx::parseInteger(String(value.asString()));
 			return true;
 		}
 		return false;

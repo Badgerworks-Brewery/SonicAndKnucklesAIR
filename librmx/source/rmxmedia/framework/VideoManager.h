@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -52,7 +52,7 @@ namespace rmx
 		SDL_Window* getMainWindow() const { return mMainWindow; }
 
 	private:
-		bool setVideoMode(const VideoConfig& videoconfig);
+		bool setVideoMode(const VideoConfig& videoConfig);
 
 	private:
 		bool mInitialized = false;

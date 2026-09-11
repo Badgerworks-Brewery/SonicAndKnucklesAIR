@@ -1,15 +1,15 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
 */
 
 #include "oxygen/pch.h"
-#include "oxygen/application/EngineMain.h"
 #include "oxygen/rendering/parts/PlaneManager.h"
 #include "oxygen/rendering/parts/PatternManager.h"
+#include "oxygen/engine/EngineMain.h"
 #include "oxygen/simulation/EmulatorInterface.h"
 
 
@@ -85,8 +85,8 @@ void PlaneManager::reset()
 	mNameTableBaseW = 0x8000;
 
 	mPlayfieldSize.set(64, 32);
-	mUsingPlaneW = false;
-	mPlaneAWSplit = 0;
+	mIsPlaneWBelowSplitY = false;
+	mPlaneAWSplitY = 0;
 
 	resetCustomPlanes();
 }
@@ -115,13 +115,16 @@ void PlaneManager::refresh()
 
 			default:
 			{
-				const uint16* src = getPlaneContent(index);
-				memcpy(buffer, src, numPatterns * sizeof(uint16));
-				if (isDeveloperMode)
+				if (isPlaneUsed(index))
 				{
-					for (int k = 0; k < numPatterns; ++k)
+					const uint16* src = getPlaneContent(index);
+					memcpy(buffer, src, numPatterns * sizeof(uint16));
+					if (isDeveloperMode)
 					{
-						mPatternManager.setLastUsedAtex(src[k], (src[k] >> 9) & 0x70);
+						for (int k = 0; k < numPatterns; ++k)
+						{
+							mPatternManager.setLastUsedAtex(src[k], (src[k] >> 9) & 0x70);
+						}
 					}
 				}
 				break;
@@ -139,6 +142,7 @@ void PlaneManager::resetCustomPlanes()
 
 bool PlaneManager::isPlaneUsed(int index) const
 {
+	// Is index valid at all?
 	if (EngineMain::getDelegate().useDeveloperFeatures())
 	{
 		if (index > PLANE_DEBUG)
@@ -150,8 +154,20 @@ bool PlaneManager::isPlaneUsed(int index) const
 			return false;
 	}
 
-	if (index == PLANE_W)
-		return mUsingPlaneW;
+	// Plane A or W may be unused
+	if (mPlaneAWSplitY == 0)
+	{
+		if (mIsPlaneWBelowSplitY)
+		{
+			if (index == PLANE_A)
+				return false;
+		}
+		else
+		{
+			if (index == PLANE_W)
+				return false;
+		}
+	}
 
 	return true;
 }
@@ -236,10 +252,127 @@ const uint16* PlaneManager::getPlaneContent(int planeIndex, uint16 patternIndex)
 	return (uint16*)(EmulatorInterface::instance().getVRam() + getPatternVRAMAddress(planeIndex, patternIndex));
 }
 
-void PlaneManager::setupPlaneW(bool use, uint16 splitY)
+void PlaneManager::setWindowPlaneSplitX(bool rightSideWindow, uint16 splitX)
 {
-	mUsingPlaneW = use;
-	mPlaneAWSplit = splitY;
+	mIsPlaneWRightOfSplitX = rightSideWindow;
+	mPlaneAWSplitX = splitX;
+}
+
+void PlaneManager::setWindowPlaneSplitY(bool bottomWindow, uint16 splitY)
+{
+	mIsPlaneWBelowSplitY = bottomWindow;
+	mPlaneAWSplitY = splitY;
+}
+
+void PlaneManager::setRenderPlaneABehindW(bool renderPlaneABehindW)
+{
+	mRenderPlaneABehindW = renderPlaneABehindW;
+}
+
+void PlaneManager::getPlaneRects(std::vector<PlaneRect>& output, const Recti& fullscreenRect) const
+{
+	output.clear();
+
+	const int splitX = clamp(mPlaneAWSplitX, 0, fullscreenRect.width);
+	const int splitY = clamp(mPlaneAWSplitY, 0, fullscreenRect.height);
+
+	Recti rectA = fullscreenRect;	// Rectangle where plane A is rendered (unless it's enforced to be fullscreen in any case)
+	Recti invA;						// Component-wise "inverse" of that rectangle: includes exactly the remaining intervals in both x and y directions individually
+	{
+		if (mIsPlaneWRightOfSplitX)
+		{
+			rectA.width = splitX;
+			invA.x = splitX;
+			invA.width = fullscreenRect.width - splitX;
+		}
+		else
+		{
+			invA.width = splitX;
+			rectA.x = splitX;
+			rectA.width = fullscreenRect.width - splitX;
+		}
+
+		if (mIsPlaneWBelowSplitY)
+		{
+			rectA.height = splitY;
+			invA.y = splitY;
+			invA.height = fullscreenRect.height - splitY;
+		}
+		else
+		{
+			invA.height = splitY;
+			rectA.y = splitY;
+			rectA.height = fullscreenRect.height - splitY;
+		}
+	}
+
+	// Plane B
+	PlaneRect& planeRectB = vectorAdd(output);
+	planeRectB.mPlane = PLANE_B;
+	planeRectB.mRect = fullscreenRect;
+
+	if (mRenderPlaneABehindW || !rectA.isEmpty())
+	{
+		// Plane A
+		PlaneRect& planeRectA = vectorAdd(output);
+		planeRectA.mPlane = PLANE_A;
+		planeRectA.mRect = mRenderPlaneABehindW ? fullscreenRect : rectA;
+	}
+
+	if (rectA != fullscreenRect)
+	{
+		// Plane W
+		PlaneRect& planeRectW = vectorAdd(output);
+		planeRectW.mPlane = PLANE_W;
+		planeRectW.mRect = fullscreenRect;
+
+		if (rectA.isEmpty())
+		{
+			// Plane W is fullscreen
+		}
+		else if (rectA.width == fullscreenRect.width)
+		{
+			// Plane W is full width, but limited height
+			planeRectW.mRect.y = invA.y;
+			planeRectW.mRect.height = invA.height;
+		}
+		else if (rectA.height == fullscreenRect.height)
+		{
+			// Plane W is full height, but limited width
+			planeRectW.mRect.x = invA.x;
+			planeRectW.mRect.width = invA.width;
+		}
+		else
+		{
+			// The screen is split both horizontally and vertically, and three of the four areas are covered by plane W
+			PlaneRect& planeRectW2 = vectorAdd(output);
+			planeRectW2.mPlane = PLANE_W;
+			planeRectW2.mRect = fullscreenRect;
+
+			if (rectA.y == 0)
+			{
+				// Upper part is limited width
+				planeRectW.mRect.x = invA.x;
+				planeRectW.mRect.width = invA.width;
+				planeRectW.mRect.height = rectA.height;
+
+				// Lower part is full width
+				planeRectW2.mRect.y = invA.y;
+				planeRectW2.mRect.height = invA.height;
+			}
+			else
+			{
+				// Upper part is full width
+				planeRectW.mRect.height = invA.height;
+
+				// Lower part is limited width
+				planeRectW2.mRect.x = invA.x;
+				planeRectW2.mRect.width = invA.width;
+				planeRectW2.mRect.y = rectA.y;
+				planeRectW2.mRect.height = rectA.height;
+			}
+		}
+	}
 }
 
 void PlaneManager::dumpAsPaletteBitmap(PaletteBitmap& output, int planeIndex, bool highlightPrioPatterns) const
@@ -266,7 +399,7 @@ void PlaneManager::dumpAsPaletteBitmap(PaletteBitmap& output, int planeIndex, bo
 			const uint16 patternIndex = getPatternAtIndex(planeIndex, (x / 8) + (y / 8) * numPatternsPerLine);
 			const PatternManager::CacheItem::Pattern& pattern = patternCache[patternIndex & 0x07ff].mFlipVariation[(patternIndex >> 11) & 3];
 			const uint8* srcPatternPixels = &pattern.mPixels[(x & 0x07) + (y & 0x07) * 8];
-			const uint8 atex = (patternIndex >> 9) & 0x30;
+			const uint8 atex = ((planeIndex != PLANE_DEBUG) ? (patternIndex >> 9) : mPatternManager.getLastUsedAtex(patternIndex)) & 0x30;
 
 			for (int k = 0; k < 8; ++k)
 			{
@@ -322,8 +455,13 @@ void PlaneManager::serializeSaveState(VectorBinarySerializer& serializer, uint8 
 	if (formatVersion >= 4)
 	{
 		serializer.serialize(mNameTableBaseW);
-		serializer.serializeAs<uint8>(mUsingPlaneW);
-		serializer.serialize(mPlaneAWSplit);
+		serializer.serializeAs<uint8>(mIsPlaneWBelowSplitY);
+		serializer.serialize(mPlaneAWSplitY);
+
+		if (formatVersion >= 7)
+		{
+			serializer.serializeAs<uint8>(mRenderPlaneABehindW);
+		}
 
 		for (int k = 0; k < 4; ++k)
 		{

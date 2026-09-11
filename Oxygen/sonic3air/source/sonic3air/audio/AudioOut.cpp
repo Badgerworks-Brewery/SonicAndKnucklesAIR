@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -45,7 +45,7 @@ void AudioOut::startup()
 	}
 
 	// Replace the ingame master audio mixer
-	mIngameAudioMixer = &FTX::Audio->createAudioMixer<CustomAudioMixer>((int)AudioMixerId::INGAME_MASTER, (int)AudioMixerId::ROOT);
+	mIngameAudioMixer = &FTX::Audio->createAudioMixer<CustomAudioMixer>("In-game Master (Custom)", (int)AudioMixerId::INGAME_MASTER, (int)AudioMixerId::ROOT);
 }
 
 void AudioOut::shutdown()
@@ -68,45 +68,24 @@ void AudioOut::resetGame()
 	mAudioPlayer.resetAudioModifiers();
 }
 
-void AudioOut::realtimeUpdate(float secondsPassed)
-{
-	// Sync volumes
-	ConfigurationImpl& config = ConfigurationImpl::instance();
-	if (mMusicVolume != config.mMusicVolume)
-	{
-		mMusicVolume = config.mMusicVolume;
-		FTX::Audio->setAudioMixerVolumeByID((int)AudioMixerId::INGAME_MUSIC, mMusicVolume);
-		FTX::Audio->setAudioMixerVolumeByID((int)AudioMixerId::MENU_MUSIC, mMusicVolume);
-	}
-	if (mSoundVolume != config.mSoundVolume)
-	{
-		mSoundVolume = config.mSoundVolume;
-		FTX::Audio->setAudioMixerVolumeByID((int)AudioMixerId::INGAME_SOUND, mSoundVolume);
-		FTX::Audio->setAudioMixerVolumeByID((int)AudioMixerId::MENU_SOUND, mSoundVolume);
-	}
-
-	// Call base implementation
-	AudioOutBase::realtimeUpdate(secondsPassed);
-}
-
-void AudioOut::playAudioDirect(uint64 sfxId, SoundRegType type, int contextBase, AudioReference* outAudioReference)
+void AudioOut::playAudioDirect(uint64 audioKey, SoundRegType type, int contextBase, AudioReference* outAudioReference)
 {
 	SfxHandling handling;
-	handling.mSoundReg = mAudioCollection.getSourceRegistration(sfxId);
+	handling.mSoundReg = mAudioCollection.getSourceRegistration(audioKey);
 	handling.mType = type;
 	handling.mClearMusic = false;
 	if (nullptr != handling.mSoundReg)
 	{
-		playAudioInternal(handling, sfxId, contextBase, outAudioReference);
+		playAudioInternal(handling, audioKey, contextBase, outAudioReference);
 	}
 }
 
-void AudioOut::setMenuMusic(uint64 sfxId)
+void AudioOut::setMenuMusic(uint64 audioKey)
 {
-	if (!isPlayingSfxId(sfxId))
+	if (!isPlayingAudioKey(audioKey))
 	{
-		playAudioDirect(sfxId, SoundRegType::MUSIC, CONTEXT_MENU + CONTEXT_MUSIC);
-		mMenuMusicId = sfxId;
+		playAudioDirect(audioKey, SoundRegType::MUSIC, CONTEXT_MENU + CONTEXT_MUSIC);
+		mMenuMusicId = audioKey;
 	}
 }
 
@@ -177,7 +156,7 @@ void AudioOut::determineActiveSourceRegistrations()
 	mAudioCollection.determineActiveSourceRegistrations(preferOriginal);
 }
 
-void AudioOut::playAudioInternal(const SfxHandling& handling, uint64 sfxId, int contextBase, AudioReference* outAudioReference)
+void AudioOut::playAudioInternal(const SfxHandling& handling, uint64 audioKey, int contextBase, AudioReference* outAudioReference)
 {
 	int contextId = contextBase & 0xf0;
 	if (handling.mType == SoundRegType::MUSIC || handling.mType == SoundRegType::JINGLE)
@@ -188,5 +167,5 @@ void AudioOut::playAudioInternal(const SfxHandling& handling, uint64 sfxId, int 
 	{
 		contextId |= CONTEXT_SOUND;
 	}
-	mAudioPlayer.playAudio(sfxId, contextId);
+	mAudioPlayer.playAudio(audioKey, contextId);
 }

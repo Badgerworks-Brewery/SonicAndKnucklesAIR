@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -66,7 +66,9 @@ namespace lemon
 		enum class OperatorType
 		{
 			ASSIGNMENT,
+			ASSIGNMENT_INT,
 			SYMMETRIC,
+			SYMMETRIC_INT,
 			COMPARISON,
 			TRINARY,
 			UNKNOWN
@@ -77,6 +79,11 @@ namespace lemon
 		static uint8 getOperatorPriority(Operator op);
 		static bool isOperatorAssociative(Operator op);
 		static OperatorType getOperatorType(Operator op);
+		static bool isAssignment(Operator op);
+		static bool isSymmetric(Operator op);
+
+		static Operator getBinaryForAssign(Operator op);
+		static Operator getAssignForBinary(Operator op);
 	};
 
 }

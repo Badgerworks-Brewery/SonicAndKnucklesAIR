@@ -69,9 +69,11 @@ Source code contributions by:
 * gl33ntwine
 * Rinnegatamante
 * MDashK
+* CodenameGamma
+* LelJader
 
 Remastered soundtrack by:
-* G Spindash
+* SpinnRG
 
 Game scripts & other contributions by:
 * Vinegar
@@ -79,14 +81,18 @@ Game scripts & other contributions by:
 * Legobouwer
 * GFX32
 * Dynamic Lemons
-* HazelSpooder
+* AmberChromatic
 * iCloudius
 * D.A. Garden
 * Alieneer
 * 3Pills
 * Elsie The Pict
-* TheMushrunt
+* nabbup
 * mrgrassman14
+* Vague Rant
+* PaperTriangle
+* Crappy Productions
+* AtomicRey
 
 Additional thanks:
 * All contributors of the Sonic 3 / Sonic & Knuckles Disassembly (https://github.com/sonicretro/skdisasm), which has proven itself a valuable source of information on S3&K code

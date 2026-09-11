@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -86,7 +86,17 @@ void Drawer::createTexture(DrawerTexture& outTexture)
 	mActiveDrawer->createTexture(outTexture);
 	outTexture.mRegisteredOwner = this;
 	outTexture.mRegisteredIndex = mDrawerTextures.size();
+	outTexture.mUniqueID = mNextUniqueID;
+
 	mDrawerTextures.push_back(&outTexture);
+	mTexturesByID[mNextUniqueID] = &outTexture;
+
+	++mNextUniqueID;
+}
+
+const DrawerTexture* Drawer::getTextureByID(uint32 uniqueID) const
+{
+	return mapFindOrDefault(mTexturesByID, uniqueID, nullptr);
 }
 
 Recti Drawer::getSpriteRect(uint64 spriteKey) const
@@ -308,6 +318,8 @@ bool Drawer::onDrawerCreated()
 
 void Drawer::unregisterTexture(DrawerTexture& texture)
 {
+	mTexturesByID.erase(texture.mUniqueID);
+
 	// Remove by swapping with last texture
 	const size_t index = texture.mRegisteredIndex;
 	if (index + 1 < mDrawerTextures.size())

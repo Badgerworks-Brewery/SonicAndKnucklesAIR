@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -14,10 +14,10 @@
 #include "oxygen/drawing/opengl/OpenGLDrawerResources.h"
 #include "oxygen/drawing/opengl/OpenGLDrawerTexture.h"
 #include "oxygen/drawing/opengl/OpenGLSpriteTextureManager.h"
-#include "oxygen/drawing/opengl/Upscaler.h"
+#include "oxygen/drawing/opengl/OpenGLUpscaler.h"
 #include "oxygen/drawing/DrawCollection.h"
 #include "oxygen/drawing/DrawCommand.h"
-#include "oxygen/application/EngineMain.h"
+#include "oxygen/engine/EngineMain.h"
 #include "oxygen/helper/Logging.h"
 #include "oxygen/rendering/opengl/shaders/SimpleRectColoredShader.h"
 #include "oxygen/rendering/opengl/shaders/SimpleRectIndexedShader.h"
@@ -111,8 +111,7 @@ namespace opengldrawer
 	struct Internal
 	{
 	public:
-		Internal() :
-			mUpscaler(mResources)
+		Internal()
 		{
 		#if defined(RMX_USE_GLEW)
 			// GLEW initialization
@@ -152,10 +151,6 @@ namespace opengldrawer
 			RMX_LOG_INFO("Setting OpenGL defaults...");
 			mResources.setBlendMode(BlendMode::OPAQUE);
 
-			// Startup upscaler
-			RMX_LOG_INFO("Upscaler startup");
-			mUpscaler.startup();
-
 			mSetupSuccessful = true;
 		}
 
@@ -163,7 +158,6 @@ namespace opengldrawer
 		{
 			if (mSetupSuccessful)
 			{
-				mUpscaler.shutdown();
 				mResources.shutdown();
 			}
 		}
@@ -346,6 +340,8 @@ namespace opengldrawer
 					return;
 			}
 
+			mResources.setBlendMode(BlendMode::ALPHA);
+
 			static OpenGLFontOutput::VertexGroups vertexGroups;
 			fontOutput.buildVertexGroups(vertexGroups, typeInfos);
 
@@ -377,7 +373,6 @@ namespace opengldrawer
 		SDL_Window* mOutputWindow = nullptr;
 
 		OpenGLDrawerResources mResources;
-		Upscaler mUpscaler;
 		OpenGLSpriteTextureManager mSpriteTextureManager;
 
 		Recti mCurrentViewport;
@@ -505,7 +500,7 @@ void OpenGLDrawer::performRendering(const DrawCollection& drawCollection)
 					break;
 
 				UpscaledRectDrawCommand& dc = drawCommand->as<UpscaledRectDrawCommand>();
-				mInternal.mUpscaler.renderImage(dc.mRect, dc.mTexture->getImplementation<OpenGLDrawerTexture>()->getTextureHandle(), dc.mTexture->getSize());
+				mInternal.mResources.getUpscaler().renderImage(dc.mRect, dc.mTexture->getImplementation<OpenGLDrawerTexture>()->getTextureHandle(), dc.mTexture->getSize());
 				break;
 			}
 

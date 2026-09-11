@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -87,11 +87,11 @@ namespace lemon
 	}
 
 
-	void RuntimeFunction::build(Runtime& runtime)
+	bool RuntimeFunction::build(Runtime& runtime)
 	{
 		// First check if it is built already
 		if (!mRuntimeOpcodeBuffer.empty() || mFunction->mOpcodes.empty())
-			return;
+			return true;
 
 		// Create the runtime opcodes
 		{
@@ -110,19 +110,27 @@ namespace lemon
 
 			mProgramCounterByOpcodeIndex.resize(numOpcodes, 0xffffffff);
 
-			// Let the opcode providers create runtime opcodes
-			//  -> They may choose to merge more than one opcode into a runtime opcode, where that's feasible
-			for (size_t i = 0; i < numOpcodes; )
+			try
 			{
-				const size_t start = tempBuffer.size();
-
-				int numOpcodesConsumed = 1;
-				createRuntimeOpcode(tempBuffer, &opcodes[i], opcodeData[i].mRemainingSequenceLength, (int)i, numOpcodesConsumed, runtime);
-				for (int k = 0; k < numOpcodesConsumed; ++k)
+				// Let the opcode providers create runtime opcodes
+				//  -> They may choose to merge more than one opcode into a runtime opcode, where that's feasible
+				for (size_t i = 0; i < numOpcodes; )
 				{
-					mProgramCounterByOpcodeIndex[k + i] = start;
+					const size_t start = tempBuffer.size();
+					int numOpcodesConsumed = 1;
+					createRuntimeOpcode(tempBuffer, &opcodes[i], opcodeData[i].mRemainingSequenceLength, (int)i, numOpcodesConsumed, runtime);
+
+					for (int k = 0; k < numOpcodesConsumed; ++k)
+					{
+						mProgramCounterByOpcodeIndex[k + i] = start;
+					}
+					i += numOpcodesConsumed;
 				}
-				i += numOpcodesConsumed;
+			}
+			catch (const std::exception& e)
+			{
+				RMX_ERROR("Build of lemonscript runtime function \"" << mFunction->getName() << "\" failed due to error: " << e.what(), );
+				return false;
 			}
 
 			// Copy the runtime opcodes over into the actual opcode buffer for this function
@@ -173,26 +181,30 @@ namespace lemon
 			for (size_t i = 0; i < runtimeOpcodePointers.size() - 1; ++i)
 			{
 				RuntimeOpcode& runtimeOpcode = *runtimeOpcodePointers[i];
-				runtimeOpcode.mNext = (RuntimeOpcode*)((uint8*)&runtimeOpcode + (size_t)runtimeOpcode.mSize);
+				RuntimeOpcode* next = (RuntimeOpcode*)((uint8*)&runtimeOpcode + (size_t)runtimeOpcode.mSize);
 
 				for (int runs = 0; runs < 5; ++runs)
 				{
-					if (runtimeOpcode.mNext->mOpcodeType != Opcode::Type::JUMP)
+					if (next->mOpcodeType != Opcode::Type::JUMP)
 						break;
 
 					// Take a shortcut by skipping the jump opcode and directly pointing to its target as next opcode
 					//  -> But only do that for jumps forward, otherwise it's possible that script execution can get stuck in an infinite loop
 					//  -> That's because counted steps are only checked in actually executed jumps, but not in those that we optimize away here
-					RuntimeOpcode* targetPointer = reinterpret_cast<RuntimeOpcode*>(runtimeOpcode.mNext->getParameter<uint64>());
+					RuntimeOpcode* targetPointer = reinterpret_cast<RuntimeOpcode*>(next->getParameter<uint64>());
 					RuntimeOpcode* ownPointer = &runtimeOpcode;
 					if (targetPointer <= ownPointer)
 						break;
 
-					runtimeOpcode.mNext = targetPointer;
+					next = targetPointer;
 					// Continue the for-loop, in case mNext is yet another jump that can be resolved by a shortcut
 				}
+
+				runtimeOpcode.mOffsetToNext = (int32)((uint8*)next - (uint8*)&runtimeOpcode);
 			}
 		}
+
+		return true;
 	}
 
 	size_t RuntimeFunction::translateFromRuntimeProgramCounter(const uint8* runtimeProgramCounter) const
@@ -241,7 +253,7 @@ namespace lemon
 		const Program& program = runtime.getProgram();
 		if (program.getOptimizationLevel() >= 2 && nullptr != program.mNativizedOpcodeProvider)
 		{
-			const bool success = program.mNativizedOpcodeProvider->buildRuntimeOpcode(buffer, opcodes, numOpcodesAvailable, firstOpcodeIndex, outNumOpcodesConsumed, runtime);
+			const bool success = program.mNativizedOpcodeProvider->buildRuntimeOpcode(buffer, opcodes, numOpcodesAvailable, firstOpcodeIndex, outNumOpcodesConsumed, runtime, *mFunction);
 			if (success)
 				return;
 		}
@@ -249,13 +261,13 @@ namespace lemon
 		// Runtime opcode generation by merging multiple opcodes where possible
 		if (program.getOptimizationLevel() >= 1)
 		{
-			const bool success = OptimizedOpcodeProvider::buildRuntimeOpcodeStatic(buffer, opcodes, numOpcodesAvailable, firstOpcodeIndex, outNumOpcodesConsumed, runtime);
+			const bool success = OptimizedOpcodeProvider::buildRuntimeOpcodeStatic(buffer, opcodes, numOpcodesAvailable, firstOpcodeIndex, outNumOpcodesConsumed, runtime, *mFunction);
 			if (success)
 				return;
 		}
 
 		// Fallback: Direct translation of one opcode to the respective runtime opcode
-		DefaultOpcodeProvider::buildRuntimeOpcodeStatic(buffer, opcodes, numOpcodesAvailable, firstOpcodeIndex, outNumOpcodesConsumed, runtime);
+		DefaultOpcodeProvider::buildRuntimeOpcodeStatic(buffer, opcodes, numOpcodesAvailable, firstOpcodeIndex, outNumOpcodesConsumed, runtime, *mFunction);
 	}
 
 	const uint8* RuntimeFunction::translateJumpTarget(uint32 targetOpcodeIndex) const

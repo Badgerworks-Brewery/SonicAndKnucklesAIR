@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -22,12 +22,14 @@
 
 #include "oxygen/application/Application.h"
 #include "oxygen/application/Configuration.h"
-#include "oxygen/application/EngineMain.h"
 #include "oxygen/application/gameview/GameView.h"
 #include "oxygen/application/input/ControlsIn.h"
 #include "oxygen/application/input/InputManager.h"
 #include "oxygen/application/video/VideoOut.h"
+#include "oxygen/engine/EngineMain.h"
 #include "oxygen/helper/FileHelper.h"
+#include "oxygen/menu/imgui/ImGuiManager.h"
+#include "oxygen/menu/imgui/implementations/ImGuiFileBrowser.h"
 #include "oxygen/platform/PlatformFunctions.h"
 #include "oxygen/rendering/utils/RenderUtils.h"
 #include "oxygen/simulation/EmulatorInterface.h"
@@ -70,7 +72,7 @@ void GameApp::initialize()
 	simulation.setRunning(false);
 
 	gotoPhase(Configuration::instance().mStartPhase);
-	if (Configuration::instance().mLoadLevel >= 0)
+	if (Configuration::instance().mLoadLevel >= 0 && Configuration::instance().mLoadLevel <= 0xffff)
 	{
 		Game::instance().startIntoLevel(Game::Mode::UNDEFINED, 0, Configuration::instance().mLoadLevel, Configuration::instance().mUseCharacters);
 	}
@@ -339,6 +341,25 @@ void GameApp::showSkippableCutsceneWindow(bool show)
 			mGameView->addChild(*mSkippableCutsceneWindow);
 	}
 	mSkippableCutsceneWindow->show(show);
+}
+
+bool GameApp::supportsFileBrowser()
+{
+#if defined(SUPPORT_IMGUI)
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool GameApp::openFileBrowser()
+{
+#if defined(SUPPORT_IMGUI)
+	ImGuiManager::instance().getOrAddImGuiContentProvider<ImGuiFileBrowser>(100);
+	return true;
+#else
+	return false;
+#endif
 }
 
 void GameApp::gotoPhase(int phaseNumber)

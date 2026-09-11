@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -35,8 +35,8 @@ bool Renderer::progressRendering()
 	++mRenderingRunningCount;
 	if ((mRenderingRunningCount % 100) == 0)
 	{
-		constexpr uint32 LIMIT_MILLISECONDS = 100;
-		const uint32 numTicks = SDL_GetTicks() - mRenderingStartTicks;
+		constexpr SDL_TicksType LIMIT_MILLISECONDS = 100;
+		const SDL_TicksType numTicks = SDL_GetTicks() - mRenderingStartTicks;
 		if (numTicks >= LIMIT_MILLISECONDS)
 		{
 			if (!mLoggedLimitWarning)

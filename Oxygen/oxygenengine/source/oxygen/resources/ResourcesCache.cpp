@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -11,7 +11,7 @@
 #include "oxygen/resources/PaletteCollection.h"
 #include "oxygen/resources/RawDataCollection.h"
 #include "oxygen/application/Configuration.h"
-#include "oxygen/application/modding/ModManager.h"
+#include "oxygen/engine/modding/ModManager.h"
 #include "oxygen/helper/Logging.h"
 #include "oxygen/platform/PlatformFunctions.h"
 
@@ -32,7 +32,7 @@ bool ResourcesCache::loadRom()
 	{
 		for (const GameProfile::RomInfo& romInfo : gameProfile.mRomInfos)
 		{
-			romPath = config.mAppDataPath + romInfo.mSteamRomName;
+			romPath = config.mGameAppDataPath + romInfo.mSteamRomName;
 			loaded = loadRomFile(romPath, romInfo);
 			if (loaded)
 				break;
@@ -44,7 +44,8 @@ bool ResourcesCache::loadRom()
 
 #if !defined(PLATFORM_ANDROID)
 	// Try at last known ROM location, if there is one
-	if (!loaded && !config.mLastRomPath.empty())
+	//  -> Do this only for the S3AIR executable, it won't work when switching between projects in OxygenApp
+	if (!loaded && !config.mLastRomPath.empty() && gameProfile.mIdentifier == "Sonic3AIR")
 	{
 		romPath = config.mLastRomPath;
 		loaded = loadRomFile(romPath);
@@ -299,7 +300,7 @@ void ResourcesCache::saveRomToAppData()
 {
 	if (nullptr != mLoadedRomInfo && !mLoadedRomInfo->mSteamRomName.empty())
 	{
-		const std::wstring filepath = Configuration::instance().mAppDataPath + mLoadedRomInfo->mSteamRomName;
+		const std::wstring filepath = Configuration::instance().mGameAppDataPath + mLoadedRomInfo->mSteamRomName;
 		const bool success = FTX::FileSystem->saveFile(filepath, mRom);
 		if (success)
 		{

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -17,14 +17,14 @@ namespace lemon
 		size_t pos = 0;
 		while (pos < input.length())
 		{
-			// Skip all spaces
-			while (pos < input.length() && input[pos] == 32)
+			// Skip all whitespace
+			while (pos < input.length() && (input[pos] == ' ' || input[pos] == '\t'))
 				++pos;
 
 			if (pos < input.length())
 			{
 				const size_t startPos = pos;
-				while (pos < input.length() && input[pos] != 32)
+				while (pos < input.length() && (input[pos] != ' ' && input[pos] != '\t'))
 					++pos;
 
 				mEntries.emplace_back();

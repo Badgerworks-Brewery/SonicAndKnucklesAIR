@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -53,10 +53,6 @@ EngineServerClient::~EngineServerClient()
 
 bool EngineServerClient::setupClient(bool useIPv6)
 {
-	const Configuration::GameServerBase& config = Configuration::instance().mGameServerBase;
-	if (config.mServerHostName.empty())
-		return false;
-
 	mUseIPv6 = useIPv6;
 	Sockets::startupSockets();
 

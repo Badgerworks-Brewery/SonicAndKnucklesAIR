@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -42,12 +42,14 @@ namespace highlevel
 	{
 		inline PacketTypeRegistration(uint32 packetType, const std::string& packetName)
 		{
-			RMX_ASSERT(mPacketTypeRegistry.count(packetType) == 0, "Multiple definitions of packet type '" << packetName << "'");
-			mPacketTypeRegistry[packetType] = packetName;
+			if (nullptr == mPacketTypeRegistry.get())
+				mPacketTypeRegistry = std::unique_ptr<std::unordered_map<uint32, std::string>>(new std::unordered_map<uint32, std::string>());
+			RMX_ASSERT(mPacketTypeRegistry->count(packetType) == 0, "Multiple definitions of packet type '" << packetName << "'");
+			(*mPacketTypeRegistry)[packetType] = packetName;
 		}
 
 	private:
-		static inline std::unordered_map<uint32, std::string> mPacketTypeRegistry;
+		static inline std::unique_ptr<std::unordered_map<uint32, std::string>> mPacketTypeRegistry;
 	};
 
 }

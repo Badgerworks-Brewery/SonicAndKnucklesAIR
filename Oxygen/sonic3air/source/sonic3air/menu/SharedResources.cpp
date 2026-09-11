@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -10,8 +10,8 @@
 #include "sonic3air/menu/SharedResources.h"
 #include "sonic3air/data/SharedDatabase.h"
 
-#include "oxygen/application/EngineMain.h"
-#include "oxygen/application/modding/ModManager.h"
+#include "oxygen/engine/EngineMain.h"
+#include "oxygen/engine/modding/ModManager.h"
 #include "oxygen/helper/FileHelper.h"
 #include "oxygen/helper/JsonHelper.h"
 #include "oxygen/resources/FontCollection.h"
@@ -128,10 +128,6 @@ namespace global
 			{
 				{
 					DrawerTexture& texture = mAchievementImage[achievement.mType];
-					if (!texture.isValid())
-					{
-						EngineMain::instance().getDrawer().createTexture(texture);
-					}
 					texture.accessBitmap() = bitmap;
 					texture.bitmapUpdated();
 				}
@@ -146,10 +142,6 @@ namespace global
 
 				{
 					DrawerTexture& texture = mAchievementImage[achievement.mType | 0x80000000];
-					if (!texture.isValid())
-					{
-						EngineMain::instance().getDrawer().createTexture(texture);
-					}
 					texture.accessBitmap() = bitmap;
 					texture.bitmapUpdated();
 				}

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -243,12 +243,12 @@ Configuration::Configuration()
 
 #if defined(PLATFORM_WEB)
 	// Threading in general is not (afaik) supported by emscripten
-	mUseAudioThreading = false;
+	mAudio.mUseAudioThreading = false;
 #endif
 
-#if defined(PLATFORM_ANDROID)
-	// Use a much larger default UI scale on Android, otherwise it's too finicky to interact with ImGui at all
-	mDevMode.mUIScale = 2.0f;
+#if defined(PLATFORM_ANDROID) || defined(PLATFORM_WEB)
+	// Use a much larger default UI scale on mobile platforms, otherwise it's too finicky to interact with ImGui at all
+	mDevMode.mUIScale = 2.5f;
 #endif
 }
 
@@ -273,12 +273,16 @@ bool Configuration::loadConfiguration(const std::wstring& filename)
 	bool wait = false;
 	if (loaded && serializer.serialize("WaitForDebugger", wait) && wait)
 	{
-		PlatformFunctions::showMessageBox("Waiting for debugger", "Attach debugger now, or don't...");
+		static bool alreadyWaited = false;
+		if (!alreadyWaited)		// This is needed because we enter config.json loading twice during startup, but waiting for debugger is meant to be done just once
+		{
+			PlatformFunctions::showMessageBox("Waiting for debugger", "Attach debugger now, or don't...");
+			alreadyWaited = true;
+		}
 	}
 #endif
 
 	// Define fallback values
-	mMainScriptName = L"main.lemon";
 	if (mEngineDataPath.empty())
 		mEngineDataPath = L"data";
 	if (mGameDataPath.empty())
@@ -296,7 +300,7 @@ bool Configuration::loadConfiguration(const std::wstring& filename)
 		mProjectPath += L"/";
 	}
 
-	// Load everything shared with settings_global
+	// Load everything shared with settings
 	loadConfigurationProperties(serializer);
 
 	// Call subclass implementation
@@ -315,26 +319,27 @@ bool Configuration::loadSettings(const std::wstring& filename, SettingsType sett
 		return false;
 	JsonSerializer serializer(true, root);
 
-	if (settingsType == SettingsType::GLOBAL)
+	switch (settingsType)
 	{
-		loadConfigurationProperties(serializer);
-	}
+		case SettingsType::STANDARD:
+		{
+			// All kinds of stuff
+			serializeStandardSettings(serializer);
 
-	if (settingsType == SettingsType::INPUT)
-	{
-		// Input devices
-		readInputDevices(root, mInputDeviceDefinitions);
-	}
-	else
-	{
-		// All kinds of stuff
-		serializeStandardSettings(serializer);
+			// Dev mode
+			serializeDevMode(serializer);
 
-		// Dev mode
-		serializeDevMode(serializer);
+			// Mod settings
+			loadModSettings(root, mModSettings);
+			break;
+		}
 
-		// Mod settings
-		loadModSettings(root, mModSettings);
+		case SettingsType::INPUT:
+		{
+			// Input devices
+			readInputDevices(root, mInputDeviceDefinitions);
+			break;
+		}
 	}
 
 	// Call subclass implementation
@@ -358,12 +363,6 @@ bool Configuration::loadSettings(const std::wstring& filename, SettingsType sett
 			case SettingsType::INPUT:
 			{
 				retainOldEntries = false;
-				break;
-			}
-
-			case SettingsType::GLOBAL:
-			{
-				retainOldEntries = true;
 				break;
 			}
 		}
@@ -412,30 +411,6 @@ void Configuration::saveSettings()
 		JsonHelper::saveFile(mSettingsFilenames[settingsIndex], root);
 	}
 
-	// Save global settings
-	settingsIndex = (int)SettingsType::GLOBAL;
-	if (!mSettingsFilenames[settingsIndex].empty())
-	{
-		Json::Value root = mSettingsJsons[settingsIndex];
-		if (!root.isNull())		// Only overwrite if it existed before already
-		{
-			JsonSerializer serializer(false, root);
-
-			// Overwrite only certain properties, namely those that can be defined by the mod manager AND changed by the game
-			std::string renderMethod = mAutoDetectRenderMethod ? "auto" :
-										(mRenderMethod == RenderMethod::OPENGL_FULL) ? "opengl-full" :
-										(mRenderMethod == RenderMethod::OPENGL_SOFT) ? "opengl-soft" : "software";
-			serializer.serialize("RenderMethod", renderMethod);
-			serializer.serializeAs<int>("Fullscreen", mWindowMode);
-
-			// Call subclass implementation
-			saveSettingsInternal(serializer, SettingsType::GLOBAL);
-
-			// Save file
-			JsonHelper::saveFile(mSettingsFilenames[settingsIndex], root);
-		}
-	}
-
 	// Save input settings
 	settingsIndex = (int)SettingsType::INPUT;
 	if (!mSettingsFilenames[settingsIndex].empty())
@@ -461,7 +436,6 @@ void Configuration::loadConfigurationProperties(JsonSerializer& serializer)
 	{
 		FTX::FileSystem->normalizePath(mScriptsDir, true);
 	}
-	serializer.serialize("MainScriptName", mMainScriptName);
 
 	if (mDevMode.mEnabled)
 	{
@@ -489,27 +463,22 @@ void Configuration::loadConfigurationProperties(JsonSerializer& serializer)
 		serializer.endObject();
 	}
 
-	if (mLoadLevel != -1 || mGameRecorder.mEnablePlayback)
+	if ((mLoadLevel >= 0 && mLoadLevel <= 0xffff) || mGameRecorder.mEnablePlayback)
 	{
 		// Enforce start phase 3 (in-game) when a level to load directly is defined, and in game recording playback mode
 		mStartPhase = 3;
 	}
 
-	// Video
+	// Display
 	serializer.serializeVectorAsSizeString("WindowSize", mWindowSize);
 	if (mDevMode.mEnabled)
 	{
 		serializer.serializeVectorAsSizeString("GameScreen", mGameScreen);
 	}
 	serializer.serialize("Upscaling", mUpscaling);
-	serializer.serialize("Filtering", mFiltering);
-	serializer.serialize("Scanlines", mScanlines);
 	serializer.serialize("BackgroundBlur", mBackgroundBlur);
 	serializer.serialize("PerformanceDisplay", mPerformanceDisplay);
 	tryReadRenderMethod(serializer, mFailSafeMode, mRenderMethod, mAutoDetectRenderMethod);
-
-	// Audio
-	serializer.serialize("AudioSampleRate", mAudioSampleRate);
 
 	// Input recorder
 	if (mDevMode.mEnabled)
@@ -537,47 +506,125 @@ void Configuration::serializeStandardSettings(JsonSerializer& serializer)
 	serializer.serialize("FailSafeMode", mFailSafeMode);
 
 	if (serializer.isReading() && mFailSafeMode)
-		mUseAudioThreading = false;
+		mAudio.mUseAudioThreading = false;
 
-	// Graphics
-	if (serializer.isReading())
+	// Misc
+	if (!serializer.isReading())
 	{
-		tryReadRenderMethod(serializer, mFailSafeMode, mRenderMethod, mAutoDetectRenderMethod);
-	}
-	else
-	{
-		std::string renderMethod = mAutoDetectRenderMethod ? "auto" :
-									(mRenderMethod == RenderMethod::OPENGL_FULL) ? "opengl-full" :
-									(mRenderMethod == RenderMethod::OPENGL_SOFT) ? "opengl-soft" : "software";
-		serializer.serialize("RenderMethod", renderMethod);
-
 		serializer.serialize("FailSafeMode", mFailSafeMode);
 		serializer.serialize("PlatformFlags", mPlatformFlags);
 	}
 
-	serializer.serializeAs<int>("Fullscreen", mWindowMode);
-	serializer.serialize("DisplayIndex", mDisplayIndex);
-	serializer.serializeAs<int>("FrameSync", mFrameSync);
-	serializer.serialize("Upscaling", mUpscaling);
-	serializer.serialize("Backdrop", mBackdrop);
-	serializer.serialize("Filtering", mFiltering);
-	serializer.serialize("Scanlines", mScanlines);
-	serializer.serialize("BackgroundBlur", mBackgroundBlur);
-	serializer.serialize("PerformanceDisplay", mPerformanceDisplay);
-
 	// Audio
-	serializer.serialize("Volume", mAudioVolume);
+	if (serializer.beginObject("Audio"))
+	{
+		serializer.serialize("MasterVolume", mAudio.mMasterVolume);
+		serializer.serialize("MusicVolume", mAudio.mMusicVolume);
+		serializer.serialize("SoundVolume", mAudio.mSoundVolume);
+		serializer.serialize("SampleRate", mAudio.mSampleRate);
+		serializer.endObject();
+	}
+	else if (serializer.isReading())
+	{
+		// Legacy support for old, flat way of storing settings (before Jan 2026)
+		serializer.serialize("Volume", mAudio.mMasterVolume);
+		serializer.serialize("Audio_MusicVolume", mAudio.mMusicVolume);
+		serializer.serialize("Audio_SoundVolume", mAudio.mSoundVolume);
+	}
+
+	// Display
+	if (serializer.beginObject("Display"))
+	{
+		if (serializer.isReading())
+		{
+			tryReadRenderMethod(serializer, mFailSafeMode, mRenderMethod, mAutoDetectRenderMethod);
+		}
+		else
+		{
+			std::string renderMethod = mAutoDetectRenderMethod ? "auto" :
+									   (mRenderMethod == RenderMethod::OPENGL_FULL) ? "opengl-full" :
+									   (mRenderMethod == RenderMethod::OPENGL_SOFT) ? "opengl-soft" : "software";
+			serializer.serialize("RenderMethod", renderMethod);
+		}
+
+		serializer.serializeAs<int>("Fullscreen", mWindowMode);
+		serializer.serialize("DisplayIndex", mDisplayIndex);
+		serializer.serializeAs<int>("FrameSync", mFrameSync);
+		serializer.serialize("Upscaling", mUpscaling);
+		serializer.serialize("Backdrop", mBackdrop);
+		serializer.serialize("PerformanceDisplay", mPerformanceDisplay);
+		serializer.serialize("BackgroundBlur", mBackgroundBlur);	// TODO: This should be made an S3AIR-specific game setting
+		serializer.endObject();
+	}
+	else if (serializer.isReading())
+	{
+		// Legacy support for old, flat way of storing settings (before June 2026)
+		tryReadRenderMethod(serializer, mFailSafeMode, mRenderMethod, mAutoDetectRenderMethod);
+		serializer.serializeAs<int>("Fullscreen", mWindowMode);
+		serializer.serialize("DisplayIndex", mDisplayIndex);
+		serializer.serializeAs<int>("FrameSync", mFrameSync);
+		serializer.serialize("Upscaling", mUpscaling);
+		serializer.serialize("Backdrop", mBackdrop);
+		serializer.serialize("PerformanceDisplay", mPerformanceDisplay);
+		serializer.serialize("BackgroundBlur", mBackgroundBlur);
+	}
+
+	// Screen filter
+	if (serializer.beginObject("ScreenFilter"))
+	{
+		serializer.serialize("FilterName", mScreenFilter.mUpscalerName);
+		if (serializer.isReading())
+		{
+			mScreenFilter.mUpscalerNameHash = rmx::getMurmur2_64(mScreenFilter.mUpscalerName);
+		}
+		serializer.serialize("PixelVariant", mScreenFilter.mPixelVariant);
+		serializer.serialize("HQxVariant", mScreenFilter.mHQxVariant);
+		serializer.serialize("Scanlines", mScreenFilter.mScanlines);
+		serializer.endObject();
+	}
+	else if (serializer.isReading())
+	{
+		// Legacy support for old, flat way of storing settings (before June 2026)
+		const std::vector<int> LEGACY_UPSCALER_INDEX = { 1, 1, 1, 2, 3, 3, 3 };
+		const std::vector<std::string> LEGACY_UPSCALER_NAME = { "", "pixel", "xbrz", "hqx" };
+		int filtering = 0;
+		serializer.serialize("Filtering", filtering);
+		if (filtering < 0 || filtering >= (int)LEGACY_UPSCALER_INDEX.size())
+			filtering = 0;
+		const int upscalerIndex = LEGACY_UPSCALER_INDEX[filtering];
+		mScreenFilter.mUpscalerName = LEGACY_UPSCALER_NAME[upscalerIndex];
+		mScreenFilter.mPixelVariant = (upscalerIndex == 1) ? filtering : 0;
+		mScreenFilter.mHQxVariant   = (upscalerIndex == 3) ? (filtering - 4) : 0;
+		serializer.serialize("Scanlines", mScreenFilter.mScanlines);
+	}
 
 	// Input
-	serializer.serialize("PreferredGamepadPlayer1", mPreferredGamepad[0]);
-	serializer.serialize("PreferredGamepadPlayer2", mPreferredGamepad[1]);
-	serializer.serialize("PreferredGamepadPlayer3", mPreferredGamepad[2]);
-	serializer.serialize("PreferredGamepadPlayer4", mPreferredGamepad[3]);
-	serializer.serialize("ControllerRumblePlayer1", mControllerRumbleIntensity[0]);
-	serializer.serialize("ControllerRumblePlayer2", mControllerRumbleIntensity[1]);
-	serializer.serialize("ControllerRumblePlayer3", mControllerRumbleIntensity[2]);
-	serializer.serialize("ControllerRumblePlayer4", mControllerRumbleIntensity[3]);
-	serializer.serialize("AutoAssignGamepadPlayerIndex", mAutoAssignGamepadPlayerIndex);
+	if (serializer.beginObject("Input"))
+	{
+		serializer.serialize("PreferredGamepadPlayer1", mPreferredGamepad[0]);
+		serializer.serialize("PreferredGamepadPlayer2", mPreferredGamepad[1]);
+		serializer.serialize("PreferredGamepadPlayer3", mPreferredGamepad[2]);
+		serializer.serialize("PreferredGamepadPlayer4", mPreferredGamepad[3]);
+		serializer.serialize("ControllerRumblePlayer1", mControllerRumbleIntensity[0]);
+		serializer.serialize("ControllerRumblePlayer2", mControllerRumbleIntensity[1]);
+		serializer.serialize("ControllerRumblePlayer3", mControllerRumbleIntensity[2]);
+		serializer.serialize("ControllerRumblePlayer4", mControllerRumbleIntensity[3]);
+		serializer.serialize("AutoAssignGamepadPlayerIndex", mAutoAssignGamepadPlayerIndex);
+		serializer.endObject();
+	}
+	else if (serializer.isReading())
+	{
+		// Legacy support for old, flat way of storing settings (before Jan 2026)
+		serializer.serialize("PreferredGamepadPlayer1", mPreferredGamepad[0]);
+		serializer.serialize("PreferredGamepadPlayer2", mPreferredGamepad[1]);
+		serializer.serialize("PreferredGamepadPlayer3", mPreferredGamepad[2]);
+		serializer.serialize("PreferredGamepadPlayer4", mPreferredGamepad[3]);
+		serializer.serialize("ControllerRumblePlayer1", mControllerRumbleIntensity[0]);
+		serializer.serialize("ControllerRumblePlayer2", mControllerRumbleIntensity[1]);
+		serializer.serialize("ControllerRumblePlayer3", mControllerRumbleIntensity[2]);
+		serializer.serialize("ControllerRumblePlayer4", mControllerRumbleIntensity[3]);
+		serializer.serialize("AutoAssignGamepadPlayerIndex", mAutoAssignGamepadPlayerIndex);
+	}
 
 	// Virtual gamepad
 	if (serializer.beginObject("VirtualGamepad"))
@@ -615,10 +662,10 @@ void Configuration::serializeDevMode(JsonSerializer& serializer)
 {
 	if (serializer.beginObject("DevMode"))
 	{
-		serializer.serialize("Enabled", mDevMode.mEnabled);
+		serializer.serialize("Enabled", mDevMode.mEnableAtStartup);
 
 		serializer.serialize("LoadSaveState", mLoadSaveState);
-		serializer.serialize("LoadLevel", mLoadLevel);
+		serializer.serializeHexValue("LoadLevel", mLoadLevel, 4);
 		if (serializer.serialize("UseCharacters", mUseCharacters))
 		{
 			if (serializer.isReading())
@@ -629,8 +676,11 @@ void Configuration::serializeDevMode(JsonSerializer& serializer)
 
 		if (serializer.beginObject("DevModeUI"))
 		{
+			serializer.serialize("GameViewScale", mDevMode.mGameViewScale);
+			serializer.serializeVectorAsString("GameViewAlignment", mDevMode.mGameViewAlignment);
 			serializer.serialize("Scale", mDevMode.mUIScale);
 			serializer.serializeHexColorRGB("AccentColor", mDevMode.mUIAccentColor);
+			serializer.serialize("ScrollByDragging", mDevMode.mScrollByDragging);
 			serializer.serializeArray("OpenWindows", mDevMode.mOpenUIWindows);
 			serializer.serialize("MainWindowOpen", mDevMode.mMainWindowOpen);
 			serializer.serialize("UseTabsInMainWindow", mDevMode.mUseTabsInMainWindow);

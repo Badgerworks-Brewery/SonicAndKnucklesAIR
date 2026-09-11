@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -12,11 +12,11 @@
 #include <functional>
 #include <optional>
 
-
 class CustomDebugSidePanelCategory;
 class DebugSidePanelCategory;
 class DebugTracking;
 class Drawer;
+
 
 class DebugSidePanel : public GuiBase
 {
@@ -75,7 +75,7 @@ private:
 private:
 	Font mSmallFont;
 
-	std::vector<DebugSidePanelCategory*> mCategories;			// All categories, including teh custom ones
+	std::vector<DebugSidePanelCategory*> mCategories;			// All categories, including the custom ones
 	std::vector<CustomDebugSidePanelCategory*> mCustomCategories;
 	size_t mActiveCategoryIndex = 0;
 
