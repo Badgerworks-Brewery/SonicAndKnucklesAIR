@@ -135,6 +135,24 @@ bool GameProfile::loadOxygenProjectFromJson(const Json::Value& jsonRoot)
 				jsonHelper.tryReadString("SteamGameName", romInfo.mSteamGameName);
 				jsonHelper.tryReadString("SteamRomName", romInfo.mSteamRomName);
 
+				std::string romTypeString;
+				if (jsonHelper.tryReadString("RomType", romTypeString) && romTypeString == "PC")
+				{
+					romInfo.mRomType = RomType::PC;
+				}
+
+				std::string pcDataOffsetString;
+				if (jsonHelper.tryReadString("PCDataOffset", pcDataOffsetString))
+				{
+					romInfo.mPCDataOffset = (uint32)rmx::parseInteger(pcDataOffsetString);
+				}
+
+				std::string pcDataSizeString;
+				if (jsonHelper.tryReadString("PCDataSize", pcDataSizeString))
+				{
+					romInfo.mPCDataSize = (uint32)rmx::parseInteger(pcDataSizeString);
+				}
+
 				std::string overwritesString;
 				if (jsonHelper.tryReadString("Overwrites", overwritesString))
 				{
