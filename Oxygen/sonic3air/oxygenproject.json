@@ -16,6 +16,20 @@
 			"SteamGameName":  "Sonic 3 & Knuckles",
 			"SteamRomName":   "Sonic_Knuckles_wSonic3.bin",
 			"Overwrites":     "0x2001f0:0x4a"
+		},
+		"S3K_OldPC":
+		{
+			// Sonic & Knuckles Collection (1997 Windows PC port). Its SONIC3K.EXE embeds
+			// the Genesis-address-mapped game data verbatim at matching file byte offsets
+			// (bias 0, verified against a retail copy), but it never executes 68k code --
+			// so the 68k boot header/vector table region is not preserved and must not be
+			// checksum-verified.
+			"SteamGameName":  "Sonic & Knuckles Collection",
+			"SteamRomName":   "SONIC3K.EXE",
+			"RomType":        "PC",
+			"PCDataOffset":   "0x000000",
+			"PCDataSize":     "0x400000",
+			"HeaderChecksum": "0x0000000000000000"
 		}
 	},
 
