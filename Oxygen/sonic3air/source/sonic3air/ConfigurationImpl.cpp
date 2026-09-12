@@ -39,8 +39,11 @@ void ConfigurationImpl::fillDefaultGameProfile(GameProfile& gameProfile)
 	gameProfile.mRomCheck.mSize = 0x400000;
 	gameProfile.mRomCheck.mChecksum = 0x344983ffcfeff8cb;
 
-	// Configure ROM info for both Genesis and PC versions
-	static const uint32 PC_SONIC3K_DATA_OFFSET = 0x153000;  // Start of game data in SONIC3K.EXE
+	// Configure ROM info for both Genesis and PC versions.
+	// SONIC3K.EXE embeds the Genesis-address-mapped game data verbatim at matching
+	// file byte offsets (offset 0, verified against a retail copy), since the PC
+	// port never executes 68k code and needed no relocation of the data tables.
+	static const uint32 PC_SONIC3K_DATA_OFFSET = 0x000000;
 	static const uint32 PC_SONIC3K_DATA_SIZE = 0x400000;    // 4MB of game data (matches Genesis ROM size)
 
 	gameProfile.mRomInfos.resize(2);

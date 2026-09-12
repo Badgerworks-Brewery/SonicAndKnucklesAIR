@@ -29,7 +29,7 @@ private:
 	bool extractPCGameData(const std::vector<uint8>& exeContent, const GameProfile::RomInfo& romInfo);
 	uint64 getHeaderChecksum(const std::vector<uint8>& content);
 	bool applyRomModifications(const GameProfile::RomInfo& romInfo);
-	bool checkRomContent();
+	bool checkRomContent(const GameProfile::RomInfo* romInfo = nullptr);
 	void saveRomToAppData();
 
 private:

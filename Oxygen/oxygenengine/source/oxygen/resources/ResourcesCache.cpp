@@ -178,7 +178,7 @@ bool ResourcesCache::loadRomFile(const std::wstring& filename, const GameProfile
 
 	if (applyRomModifications(romInfo))
 	{
-		if (checkRomContent())
+		if (checkRomContent(&romInfo))
 		{
 			mLoadedRomInfo = &romInfo;
 			return true;
@@ -207,7 +207,7 @@ bool ResourcesCache::loadRomMemory(const std::vector<uint8>& content)
 			mRom = content;
 			if (applyRomModifications(romInfo))
 			{
-				if (checkRomContent())
+				if (checkRomContent(&romInfo))
 				{
 					mLoadedRomInfo = &romInfo;
 					return true;
@@ -274,7 +274,7 @@ bool ResourcesCache::applyRomModifications(const GameProfile::RomInfo& romInfo)
 	return true;
 }
 
-bool ResourcesCache::checkRomContent()
+bool ResourcesCache::checkRomContent(const GameProfile::RomInfo* romInfo)
 {
 	// Check that it's the right ROM
 	const GameProfile::RomCheck& romCheck = GameProfile::instance().mRomCheck;
@@ -284,7 +284,14 @@ bool ResourcesCache::checkRomContent()
 			return false;
 	}
 
-	if (romCheck.mChecksum != 0)
+	// The content checksum is computed against the Genesis ROM's exact bytes.
+	// A PC Collection executable's data region is byte-identical to the Genesis
+	// ROM only at the addresses skc_disasm actually documents -- unused code
+	// regions differ, since the PC port never executes 68k code -- so the whole
+	// content checksum can't apply there; its own (skippable) HeaderChecksum is
+	// the verification hook for that RomType instead.
+	const bool isPcRom = (nullptr != romInfo && romInfo->mRomType == GameProfile::RomType::PC);
+	if (romCheck.mChecksum != 0 && !isPcRom)
 	{
 		const uint64 checksum = rmx::getMurmur2_64(&mRom[0], mRom.size());
 		if (checksum != romCheck.mChecksum)
@@ -328,7 +335,7 @@ bool ResourcesCache::extractPCGameData(const std::vector<uint8>& exeContent, con
 	mRom.resize(romInfo.mPCDataSize);
 	memcpy(&mRom[0], &exeContent[romInfo.mPCDataOffset], romInfo.mPCDataSize);
 
-	RMX_LOG_INFO("Extracted " << romInfo.mPCDataSize << " bytes of game data from PC executable at offset 0x" << rmx::hexString(romInfo.mPCDataOffset));
+	RMX_LOG_INFO("Extracted " << romInfo.mPCDataSize << " bytes of game data from PC executable at offset " << rmx::hexString(romInfo.mPCDataOffset));
 	return true;
 }
 
