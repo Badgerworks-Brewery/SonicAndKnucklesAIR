@@ -187,6 +187,28 @@ bool GameProfile::loadOxygenProjectFromJson(const Json::Value& jsonRoot)
 				}
 
 				jsonHelper.tryReadString("DiffFileName", romInfo.mDiffFileName);
+
+				jsonHelper.tryReadString("PatchSourceRomName", romInfo.mPatchSourceRomName);
+
+				const Json::Value patchRangesJson = (*it)["PatchRanges"];
+				if (patchRangesJson.isArray())
+				{
+					for (const Json::Value& rangeJson : patchRangesJson)
+					{
+						if (rangeJson.isString())
+						{
+							AddressRange range;
+							if (parseAddressRange(range, rangeJson.asString()))
+							{
+								romInfo.mPatchRanges.emplace_back(range);
+							}
+							else
+							{
+								RMX_ERROR("Invalid range in PatchRanges", );
+							}
+						}
+					}
+				}
 			}
 		}
 	}

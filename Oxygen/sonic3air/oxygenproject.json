@@ -29,7 +29,13 @@
 			"RomType":        "PC",
 			"PCDataOffset":   "0x000000",
 			"PCDataSize":     "0x400000",
-			"HeaderChecksum": "0x0000000000000000"
+			"HeaderChecksum": "0x0000000000000000",
+
+			// Optional: if the user also has a legitimately-owned Genesis ROM under this name
+			// next to the executable, these byte ranges are overlaid from it on top of the
+			// extracted PC data (see README's PC Collection section for why this is needed).
+			"PatchSourceRomName": "Sonic_Knuckles_wSonic3.bin",
+			"PatchRanges": [ "0x000000 - 0x1ffff0" ]
 		}
 	},
 

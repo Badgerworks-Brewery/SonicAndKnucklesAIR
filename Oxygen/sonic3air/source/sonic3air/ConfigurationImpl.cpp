@@ -56,12 +56,24 @@ void ConfigurationImpl::fillDefaultGameProfile(GameProfile& gameProfile)
 	gameProfile.mRomInfos[0].mOverwrites.emplace_back(0x2001f0, 0x4a);
 
 	// PC Collection configuration
-	// Data in SONIC3K.EXE starts around 0x153000 and extends to ~0x420000
 	gameProfile.mRomInfos[1].mRomType = GameProfile::RomType::PC;
 	gameProfile.mRomInfos[1].mSteamGameName = "Sonic & Knuckles Collection";
 	gameProfile.mRomInfos[1].mSteamRomName = L"SONIC3K.EXE";
 	gameProfile.mRomInfos[1].mPCDataOffset = PC_SONIC3K_DATA_OFFSET;
 	gameProfile.mRomInfos[1].mPCDataSize = PC_SONIC3K_DATA_SIZE;
+
+	// Optional: if the user places a legitimately-owned Genesis ROM named below next to the
+	// executable, its bytes in this range overlay the PC data. This is needed because
+	// SONIC3K.EXE replaced this range's original 68k boot code -- and small data tables that
+	// were interleaved with it -- with native x86 code, so it can't be read from the PC
+	// executable at all. Verified empirically: without this overlay, boot crashes almost
+	// immediately (Kosinski.decompress reading a garbage pointer at title screen); with it,
+	// boot succeeds through the main menu and into the data select screen. Not yet a complete
+	// fix -- a later crash (VDP_copyToVRAM, save-slot icon graphics) indicates at least one
+	// more mismatched region above this range remains to be found.
+	gameProfile.mRomInfos[1].mPatchSourceRomName = L"Sonic_Knuckles_wSonic3.bin";
+	gameProfile.mRomInfos[1].mPatchRanges.clear();
+	gameProfile.mRomInfos[1].mPatchRanges.emplace_back(0x000000, 0x1ffff0);
 }
 
 ConfigurationImpl::ConfigurationImpl()

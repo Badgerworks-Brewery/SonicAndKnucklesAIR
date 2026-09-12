@@ -38,6 +38,15 @@ public:
 		std::wstring mDiffFileName;
 		uint32 mPCDataOffset = 0;		// Offset in PC executable where game data starts
 		uint32 mPCDataSize = 0;			// Size of game data in PC executable
+
+		// Optional overlay: some small address ranges used by a PC executable's data blob
+		// are occupied by native code instead of the original Genesis-address-mapped data
+		// (e.g. boot-time pointer tables interleaved with 68k code that the PC port replaced
+		// with native logic). If the user has a legitimately-owned Genesis ROM available, its
+		// bytes in mPatchRanges can be overlaid on top of the extracted PC data to fill those
+		// gaps. This file is never bundled -- the user must supply their own.
+		std::wstring mPatchSourceRomName;
+		std::vector<AddressRange> mPatchRanges;		// Start address and end address are both included
 	};
 
 	struct DataPackage

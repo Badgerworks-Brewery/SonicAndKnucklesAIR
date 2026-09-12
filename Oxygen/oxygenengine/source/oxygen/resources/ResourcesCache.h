@@ -27,6 +27,7 @@ private:
 	bool loadRomFile(const std::wstring& filename, const GameProfile::RomInfo& romInfo);
 	bool loadRomMemory(const std::vector<uint8>& content);
 	bool extractPCGameData(const std::vector<uint8>& exeContent, const GameProfile::RomInfo& romInfo);
+	void applyPCPatchRanges(const GameProfile::RomInfo& romInfo);
 	uint64 getHeaderChecksum(const std::vector<uint8>& content);
 	bool applyRomModifications(const GameProfile::RomInfo& romInfo);
 	bool checkRomContent(const GameProfile::RomInfo* romInfo = nullptr);

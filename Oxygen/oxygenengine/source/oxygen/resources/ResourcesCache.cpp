@@ -336,6 +336,35 @@ bool ResourcesCache::extractPCGameData(const std::vector<uint8>& exeContent, con
 	memcpy(&mRom[0], &exeContent[romInfo.mPCDataOffset], romInfo.mPCDataSize);
 
 	RMX_LOG_INFO("Extracted " << romInfo.mPCDataSize << " bytes of game data from PC executable at offset " << rmx::hexString(romInfo.mPCDataOffset));
+
+	applyPCPatchRanges(romInfo);
 	return true;
+}
+
+void ResourcesCache::applyPCPatchRanges(const GameProfile::RomInfo& romInfo)
+{
+	// Some small address ranges in a PC executable's data blob are occupied by native code
+	// instead of the original Genesis-address-mapped data (boot-time pointer tables that were
+	// interleaved with 68k code the PC port replaced). If the user configured a patch source
+	// ROM and it's actually present, overlay those known-bad ranges from it. This never
+	// bundles or requires such a file -- it's purely optional and user-supplied.
+	if (romInfo.mPatchSourceRomName.empty() || romInfo.mPatchRanges.empty())
+		return;
+
+	std::vector<uint8> patchSource;
+	if (!FTX::FileSystem->readFile(romInfo.mPatchSourceRomName, patchSource))
+		return;
+
+	for (const GameProfile::AddressRange& range : romInfo.mPatchRanges)
+	{
+		const uint32 start = range.first;
+		const uint32 end = range.second;		// Inclusive
+		if (end < start || end >= patchSource.size() || end >= mRom.size())
+			continue;
+
+		memcpy(&mRom[start], &patchSource[start], (size_t)(end - start + 1));
+	}
+
+	RMX_LOG_INFO("Applied " << romInfo.mPatchRanges.size() << " patch range(s) from '" << WString(romInfo.mPatchSourceRomName).toStdString() << "'");
 }
 

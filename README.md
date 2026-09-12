@@ -38,11 +38,32 @@ instead of a `.bin` ROM file.
 Technical background: that executable embeds the same Genesis-address-mapped
 game data used by the Mega Drive ROM, copied verbatim at matching file byte
 offsets (i.e. Genesis address `X` sits at file offset `X`, verified against a
-retail copy). It does not contain a usable 68k boot header, since the PC port
-never executes 68k code -- Oxygen's lemonscript reimplementation runs the game
-logic directly against the extracted data table addresses instead. This is
-configured via the `S3K_OldPC` entry in `Oxygen/sonic3air/oxygenproject.json`
-(`RomType: "PC"`, `PCDataOffset`, `PCDataSize`).
+retail copy). This is configured via the `S3K_OldPC` entry in
+`Oxygen/sonic3air/oxygenproject.json` (`RomType: "PC"`, `PCDataOffset`,
+`PCDataSize`).
+
+**Current status: partial, not yet fully playable.** The executable never
+executes 68k code itself -- the PC port replaced the original boot code and
+several small pointer/lookup tables that were interleaved with it with native
+x86 code, so those specific address ranges can't be read from the PC
+executable at all (confirmed by inspection: real x86 opcodes sit where 68k
+data should be). Booting straight from `SONIC3K.EXE` alone crashes almost
+immediately (`Kosinski.decompress` reads a garbage pointer during the title
+screen boot sequence).
+
+An optional patch-overlay mechanism addresses this for anyone who also owns
+a legitimate Genesis ROM: set `PatchSourceRomName` and `PatchRanges` on a
+`RomInfo` entry, and those byte ranges are copied from that ROM on top of the
+extracted PC data after loading (see `ResourcesCache::applyPCPatchRanges`).
+Verified with a byte-perfect `Sonic_Knuckles_wSonic3.bin` supplied by a user:
+patching `0x000000`-`0x1ffff0` (the low range replaced by native code) gets
+past the original crash, through the main menu, and into the data select
+screen -- further than the PC executable manages alone. A second, still
+unidentified mismatch remains above that range (`VDP_copyToVRAM` overflow
+loading a save-slot preview sprite), so no zone has been reached yet this
+way. Neither the patch source ROM nor any extracted game data is bundled
+with this repository -- users must supply their own legitimately-owned
+files for both the PC executable and, optionally, the patch source ROM.
 
 Limitations: audio in the retail PC executable uses General MIDI/PCM rather
 than the Genesis FM synth; S3AIR's own remastered soundtrack is used instead
