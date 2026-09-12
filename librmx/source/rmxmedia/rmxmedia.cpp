@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -26,6 +26,8 @@ namespace FTX
 void rmxmedia::initialize()
 {
 	rmxbase::initialize();
+
+	rmx::ErrorHandling::mNativeWindowHandleProvider = []() { return FTX::Video->getNativeWindowHandle(); };
 
 	// Initialize audio load callbacks
 	AudioBuffer::LoadCallbackList callbacks;

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -226,7 +226,7 @@ struct ZipFileProvDetail
 
 struct ZipFileProvider::Internal
 {
-	unzFile mZipFile;
+	unzFile mZipFile = nullptr;
 	unz_global_info64 mGlobalInfo;
 	FileStructureTree mFileStructureTree;
 	std::vector<const FileStructureTree::Entry*> mEntriesBuffer;
@@ -259,12 +259,22 @@ ZipFileProvider::ZipFileProvider(const std::wstring& zipFilename) :
 	}
 	else
 	{
+		if (nullptr != mInternal.mZipFile)
+		{
+			unzClose(mInternal.mZipFile);
+			mInternal.mZipFile = nullptr;
+		}
 		RMX_LOG_INFO("Failed to load zip file '" << WString(zipFilename).toStdString() << "'");
 	}
 }
 
 ZipFileProvider::~ZipFileProvider()
 {
+	if (nullptr != mInternal.mZipFile)
+	{
+		unzClose(mInternal.mZipFile);
+		mInternal.mZipFile = nullptr;
+	}
 	delete &mInternal;
 }
 

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -10,7 +10,7 @@
 #include "oxygen/helper/FileHelper.h"
 #include "oxygen/helper/Logging.h"
 #include "oxygen/application/Configuration.h"
-#include "oxygen/application/EngineMain.h"
+#include "oxygen/engine/EngineMain.h"
 #include "oxygen/drawing/DrawerTexture.h"
 
 
@@ -141,11 +141,6 @@ bool FileHelper::loadBitmap(Bitmap& bitmap, const std::wstring& filename, bool s
 
 	bool FileHelper::loadTexture(DrawerTexture& texture, const std::wstring& filename, bool showError)
 	{
-		if (!texture.isValid())
-		{
-			EngineMain::instance().getDrawer().createTexture(texture);
-		}
-
 		Bitmap& bitmap = texture.accessBitmap();
 		if (!loadBitmap(bitmap, filename, showError))
 			return false;
@@ -161,7 +156,10 @@ bool FileHelper::loadBitmap(Bitmap& bitmap, const std::wstring& filename, bool s
 		std::vector<uint8> content;
 	#ifndef PLATFORM_VITA
 		if (!FTX::FileSystem->readFile(filename, content))
+		{
+			RMX_ERROR("Shader file not found: '" << WString(filename).toStdString() << "'", );
 			return false;
+		}
 	#else
 		std::string filename_str = WString(filename).toStdString();
 		char realp[512] = {0};

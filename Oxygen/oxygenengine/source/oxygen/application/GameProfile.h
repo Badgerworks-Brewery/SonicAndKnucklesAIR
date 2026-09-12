@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -14,6 +14,8 @@
 class GameProfile final : public SingleInstance<GameProfile>
 {
 public:
+	typedef std::pair<uint32, uint32> AddressRange;
+
 	struct RomCheck
 	{
 		uint32 mSize = 0;
@@ -32,10 +34,19 @@ public:
 		std::wstring mSteamRomName;
 		uint64 mHeaderChecksum = 0;
 		std::vector<std::pair<uint32, uint8>> mOverwrites;		// First value: address -- second value: byte value to write there
-		std::vector<std::pair<uint32, uint32>> mBlankRegions;	// First value: start address -- second value: end address (included)
+		std::vector<AddressRange> mBlankRegions;				// Start address and end address are both included
 		std::wstring mDiffFileName;
 		uint32 mPCDataOffset = 0;		// Offset in PC executable where game data starts
 		uint32 mPCDataSize = 0;			// Size of game data in PC executable
+
+		// Optional overlay: some small address ranges used by a PC executable's data blob
+		// are occupied by native code instead of the original Genesis-address-mapped data
+		// (e.g. boot-time pointer tables interleaved with 68k code that the PC port replaced
+		// with native logic). If the user has a legitimately-owned Genesis ROM available, its
+		// bytes in mPatchRanges can be overlaid on top of the extracted PC data to fill those
+		// gaps. This file is never bundled -- the user must supply their own.
+		std::wstring mPatchSourceRomName;
+		std::vector<AddressRange> mPatchRanges;		// Start address and end address are both included
 	};
 
 	struct DataPackage
@@ -54,7 +65,7 @@ public:
 	};
 	struct StackLookupEntry
 	{
-		std::vector<uint32> mAsmStack;
+		std::vector<AddressRange> mAsmStack;		// Start address and end address are both included in the ranges
 		std::vector<LemonStackEntry> mLemonStack;
 	};
 
@@ -64,6 +75,7 @@ public:
 
 public:
 	// Meta data
+	std::string mIdentifier;
 	std::string mShortName;
 	std::string mFullName;
 
@@ -74,10 +86,15 @@ public:
 	// Paths
 	std::wstring mGameDataPath;		// As a path relative to the project directory; can stay empty to use the default path
 
+	// Script configuration
+	std::wstring mMainScriptName;
+	bool mErrorOnUnknownAddress = false;
+
 	// Data packages
 	std::vector<DataPackage> mDataPackages;
 
 	// Emulation-relevant data
+	bool mPushPopAddressOnCall = false;
 	std::pair<uint32, uint32> mAsmStackRange;
 	std::vector<StackLookupEntry> mStackLookups;
 };

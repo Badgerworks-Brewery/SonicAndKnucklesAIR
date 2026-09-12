@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -8,18 +8,9 @@
 
 #include "rmxmedia.h"
 
-#if defined(PLATFORM_WINDOWS)
-	#pragma warning(disable: 4005)	// Macro redefinition of APIENTRY
-
-	#include <SDL2/SDL_syswm.h>
-
-	#define WIN32_LEAN_AND_MEAN
-	#include "CleanWindowsInclude.h"
-
-#elif defined(PLATFORM_WEB)
+#if defined(PLATFORM_WEB)
 	#include <emscripten.h>
 	#include <emscripten/html5.h>
-
 #endif
 
 
@@ -40,7 +31,11 @@ namespace rmx
 			return true;
 
 		// Initialize SDL video
+	#ifdef RMX_USE_SDL3
+		if (!SDL_Init(SDL_INIT_VIDEO))
+	#else
 		if (SDL_Init(SDL_INIT_VIDEO) < 0)
+	#endif
 		{
 			std::cout << "SDL_Init(SDL_INIT_VIDEO) failed with error: " << SDL_GetError() << "\n";
 			return false;
@@ -54,11 +49,6 @@ namespace rmx
 	{
 		// Quit SDL
 		SDL_Quit();
-	}
-
-	void SystemManager::startTick()
-	{
-		// TODO...
 	}
 
 	void SystemManager::checkSDLEvents()
@@ -76,10 +66,17 @@ namespace rmx
 					quit();
 					break;
 
+			#ifdef RMX_USE_SDL3
+				case SDL_EVENT_WINDOW_RESIZED:
+				case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+					reshape(evnt.window.data1, evnt.window.data2);
+					break;
+			#else
 				case SDL_WINDOWEVENT:
 					if (evnt.window.event == SDL_WINDOWEVENT_RESIZED || evnt.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
 						reshape(evnt.window.data1, evnt.window.data2);
 					break;
+			#endif
 
 				case SDL_KEYDOWN:
 				case SDL_KEYUP:
@@ -100,7 +97,11 @@ namespace rmx
 					break;
 
 				case SDL_MOUSEMOTION:
+				#ifdef RMX_USE_SDL3
+					mInputContext.applyMousePos(roundToInt(evnt.motion.x), roundToInt(evnt.motion.y));
+				#else
 					mInputContext.applyMousePos(evnt.motion.x, evnt.motion.y);
+				#endif
 					break;
 			}
 
@@ -120,9 +121,15 @@ namespace rmx
 	void SystemManager::keyboard(const SDL_KeyboardEvent& evnt)
 	{
 		KeyboardEvent ev;
+	#ifdef RMX_USE_SDL3
+		ev.key = evnt.key;
+		ev.scancode = evnt.scancode;
+		ev.modifiers = evnt.mod;
+	#else
 		ev.key = evnt.keysym.sym;
 		ev.scancode = evnt.keysym.scancode;
 		ev.modifiers = evnt.keysym.mod;
+	#endif
 		ev.state = (evnt.type == SDL_KEYDOWN);
 		ev.repeat = (evnt.repeat != 0);
 		mInputContext.applyEvent(ev);
@@ -134,7 +141,7 @@ namespace rmx
 	void SystemManager::textinput(const SDL_TextInputEvent& evnt)
 	{
 		TextInputEvent ev;
-		ev.text.readUnicode((const uint8*)evnt.text, (uint32)strlen(evnt.text), UnicodeEncoding::UTF8);
+		ev.text = rmx::convertFromUTF8(evnt.text);
 
 		mCurrentEventConsumed = false;
 		mRoot.textinput(ev);
@@ -150,7 +157,11 @@ namespace rmx
 		MouseEvent ev;
 		ev.button = (evnt.button <= 3) ? buttonMap[evnt.button-1] : (MouseButton)(evnt.button-3);
 		ev.state = (evnt.type == SDL_MOUSEBUTTONDOWN);
+	#ifdef RMX_USE_SDL3
+		ev.position.set(roundToInt(evnt.x), roundToInt(evnt.y));
+	#else
 		ev.position.set(evnt.x, evnt.y);
+	#endif
 		mInputContext.applyEvent(ev);
 
 		mCurrentEventConsumed = false;
@@ -160,18 +171,22 @@ namespace rmx
 	void SystemManager::mousewheel(const SDL_MouseWheelEvent& evnt)
 	{
 		// Mouse wheel
+	#ifdef RMX_USE_SDL3
+		mInputContext.applyMouseWheel(roundToInt(evnt.y));
+	#else
 		mInputContext.applyMouseWheel(evnt.y);
+	#endif
 	}
 
 	void SystemManager::update()
 	{
 		// Update timing
-		unsigned int oldTicks = mTicks;
+		const SDL_TicksType oldTicks = mTicks;
 		mTicks = SDL_GetTicks();
-		mTimeDifference = (float)(mTicks - oldTicks) * 0.001f;
+		mTimeDifference = (float)(signed)(mTicks - oldTicks) * 0.001f;
 		mTotalTime += mTimeDifference;
 
-		const float dt = clamp(mTimeDifference, 0.001f, 1.0f);
+		const float dt = clamp(mTimeDifference, 0.0001f, 1.0f);
 		const float adaption = expf(-dt * 10.0f);
 		mFrameRate = (1.0f / dt) * (1.0f - adaption) + mFrameRate * adaption;
 
@@ -204,10 +219,13 @@ namespace rmx
 
 	void SystemManager::mainLoop()
 	{
-		startTick();
+		mRoot.beginFrame();
+
 		checkSDLEvents();
 		update();
 		render();
+
+		mRoot.endFrame();
 
 #ifdef PLATFORM_WEB
 		if (!mRunning)
@@ -250,7 +268,11 @@ namespace rmx
 
 	void SystemManager::warpMouse(int x, int y)
 	{
+	#ifdef RMX_USE_SDL3
+		SDL_WarpMouseInWindow(FTX::Video->mMainWindow, (float)x, (float)y);
+	#else
 		SDL_WarpMouseInWindow(FTX::Video->mMainWindow, x, y);
+	#endif
 		mInputContext.applyMousePos(x, y);
 	}
 

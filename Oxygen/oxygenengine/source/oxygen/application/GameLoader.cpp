@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -8,12 +8,12 @@
 
 #include "oxygen/pch.h"
 #include "oxygen/application/GameLoader.h"
-#include "oxygen/application/EngineMain.h"
 #include "oxygen/application/GameProfile.h"
 #include "oxygen/application/audio/AudioOutBase.h"
 #include "oxygen/application/input/InputManager.h"
-#include "oxygen/application/modding/ModManager.h"
 #include "oxygen/application/video/VideoOut.h"
+#include "oxygen/engine/EngineMain.h"
+#include "oxygen/engine/modding/ModManager.h"
 #include "oxygen/helper/Logging.h"
 #include "oxygen/platform/PlatformFunctions.h"
 #include "oxygen/rendering/RenderResources.h"
@@ -21,8 +21,9 @@
 #include "oxygen/resources/ResourcesCache.h"
 #include "oxygen/simulation/PersistentData.h"
 #if defined(PLATFORM_ANDROID)
-	#include "oxygen/platform/AndroidJavaInterface.h"
+	#include "oxygen/platform/android/AndroidJavaInterface.h"
 #endif
+
 
 GameLoader::UpdateResult GameLoader::updateLoading()
 {
@@ -75,7 +76,7 @@ GameLoader::UpdateResult GameLoader::updateLoading()
 					}
 
 				#elif defined(PLATFORM_ANDROID)
-					javaInterface.openRomFileSelectionDialog();
+					javaInterface.openRomFileSelectionDialog(gameProfile.mRomInfos[0].mSteamGameName);
 					mState = State::WAITING_FOR_ROM;
 					return UpdateResult::CONTINUE;
 

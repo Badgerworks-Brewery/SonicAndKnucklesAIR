@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -40,7 +40,6 @@ PrintedTextCache::CacheItem& PrintedTextCache::addCacheItem(const Key& key, Font
 	cacheItem.mKey = key;
 	cacheItem.mRecentlyUsed = true;
 
-	EngineMain::instance().getDrawer().createTexture(cacheItem.mTexture);
 	Bitmap& bitmap = cacheItem.mTexture.accessBitmap();
 	font.printBitmap(bitmap, cacheItem.mInnerRect, textString, key.mSpacing);
 	cacheItem.mTexture.bitmapUpdated();
@@ -49,8 +48,8 @@ PrintedTextCache::CacheItem& PrintedTextCache::addCacheItem(const Key& key, Font
 
 void PrintedTextCache::regularCleanup()
 {
-	const uint32 currentTicks = SDL_GetTicks();
-	if ((int32)(currentTicks - mNextCheckTicks) < 0)
+	const SDL_TicksType currentTicks = SDL_GetTicks();
+	if ((signed)(currentTicks - mNextCheckTicks) < 0)
 		return;
 
 	// Remove all cached items that were not used since last cleanup

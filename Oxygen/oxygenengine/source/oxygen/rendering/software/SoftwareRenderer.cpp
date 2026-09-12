@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -12,7 +12,7 @@
 #include "oxygen/rendering/Geometry.h"
 #include "oxygen/rendering/parts/RenderParts.h"
 #include "oxygen/application/Configuration.h"
-#include "oxygen/application/EngineMain.h"
+#include "oxygen/engine/EngineMain.h"
 #include "oxygen/drawing/Drawer.h"
 #include "oxygen/drawing/DrawerTexture.h"
 #include "oxygen/drawing/software/BlitterHelper.h"
@@ -216,7 +216,7 @@ void SoftwareRenderer::renderDebugDraw(int debugDrawMode, const Recti& rect)
 	mRenderParts.getPlaneManager().dumpAsPaletteBitmap(paletteBitmap, debugDrawMode, highlightPrioPatterns);
 
 	const Vec2i bitmapSize = paletteBitmap.getSize();
-	mGameScreenTexture.setupAsRenderTarget(bitmapSize.x, bitmapSize.y);
+	mGameScreenTexture.setupAsRenderTarget(bitmapSize);
 	gameScreenBitmap.create(bitmapSize);
 
 	// Convert from palette bitmap to RGBA
@@ -250,8 +250,8 @@ void SoftwareRenderer::renderDebugDraw(int debugDrawMode, const Recti& rect)
 	drawer.drawUpscaledRect(RenderUtils::getLetterBoxRect(rect, (float)bitmapSize.x / (float)bitmapSize.y), mGameScreenTexture);
 	drawer.performRendering();
 
-	mGameScreenTexture.setupAsRenderTarget(oldSize.x, oldSize.y);
-	gameScreenBitmap.create(oldSize.x, oldSize.y);
+	mGameScreenTexture.setupAsRenderTarget(oldSize);
+	gameScreenBitmap.create(oldSize);
 }
 
 void SoftwareRenderer::renderGeometry(const Geometry& geometry)
@@ -515,7 +515,6 @@ void SoftwareRenderer::renderPlane(const PlaneGeometry& geometry)
 		BufferedPlaneData& bufferedPlaneData = mBufferedPlaneData[foundFittingBufferedPlaneDataIndex];
 
 		const uint32* palettes[2] = { paletteManager.getMainPalette(0).getRawColors(), paletteManager.getMainPalette(1).getRawColors() };
-		const bool isBackground = (geometry.mPlaneIndex == PlaneManager::PLANE_B && !geometry.mPriorityFlag);
 
 		const std::vector<BufferedPlaneData::PixelBlock>& blocks = geometry.mPriorityFlag ? bufferedPlaneData.mPrioBlocks : bufferedPlaneData.mNonPrioBlocks;
 		for (const BufferedPlaneData::PixelBlock& block : blocks)
@@ -524,14 +523,7 @@ void SoftwareRenderer::renderPlane(const PlaneGeometry& geometry)
 			uint32* RESTRICT dstRGBA = &gameScreenBitmap.getData()[block.mLinearPosition];
 			const uint32* RESTRICT paletteWithAtex = &palettes[block.mPaletteIndex][block.mAtex];
 
-			if (isBackground)
-			{
-				for (int i = 0; i < block.mNumPixels; ++i)
-				{
-					dstRGBA[i] = paletteWithAtex[src[i]];
-				}
-			}
-			else if (geometry.mPriorityFlag)
+			if (geometry.mPriorityFlag)
 			{
 				uint8* RESTRICT dstDepth = &mDepthBuffer[block.mStartCoords.x + block.mStartCoords.y * 0x200];
 				for (int i = 0; i < block.mNumPixels; ++i)
@@ -638,6 +630,9 @@ void SoftwareRenderer::renderSprite(const SpriteGeometry& geometry)
 		{
 			// Shared code for palette & component sprite rendering
 			const renderitems::CustomSpriteInfoBase& spriteBase = static_cast<const renderitems::CustomSpriteInfoBase&>(geometry.mSpriteInfo);
+			if (nullptr == spriteBase.mCacheItem)
+				break;
+
 			const bool isPaletteSprite = (geometry.mSpriteInfo.getType() == RenderItem::Type::PALETTE_SPRITE);
 
 			const PaletteManager& paletteManager = mRenderParts.getPaletteManager();

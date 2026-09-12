@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -77,7 +77,11 @@ namespace rmx
 		if (nullptr == mContext)
 			return 0;
 
+	#ifdef RMX_USE_SDL3
+		const size_t readBytes = SDL_ReadIO(mContext, dst, len);
+	#else
 		const size_t readBytes = SDL_RWread(mContext, dst, 1, len);
+	#endif
 		mLastStreamingState = (readBytes == 0) ? StreamingState::COMPLETED : StreamingState::STREAMING;
 		return readBytes;
 	}

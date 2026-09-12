@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -113,7 +113,10 @@ bool NetConnection::startConnectTo(ConnectionManager& connectionManager, const S
 	else if (mWebSocketClient.isAvailable())
 	{
 		if (!mWebSocketClient.connectTo(remoteAddress))
+		{
+			mConnectionManager = nullptr;
 			return false;
+		}
 
 		mSocketType = NetConnection::SocketType::WEB_SOCKET;
 
@@ -127,7 +130,10 @@ bool NetConnection::startConnectTo(ConnectionManager& connectionManager, const S
 		//  -> Note that this is a blocking call!
 		const bool success = mTCPSocket.connectTo(remoteAddress.getIP(), remoteAddress.getPort());
 		if (!success)
+		{
+			mConnectionManager = nullptr;
 			return false;
+		}
 
 		mSocketType = NetConnection::SocketType::TCP_SOCKET;
 	}
@@ -145,6 +151,9 @@ bool NetConnection::isConnectedTo(uint16 localConnectionID, uint16 remoteConnect
 
 void NetConnection::disconnect(DisconnectReason disconnectReason)
 {
+	if (mState == State::EMPTY || mState == State::DISCONNECTED)
+		return;
+
 	if (disconnectReason == DisconnectReason::MANUAL_LOCAL && nullptr != mConnectionManager)
 	{
 		// Send a termination packet
@@ -274,6 +283,7 @@ void NetConnection::acceptIncomingConnectionUDP(ConnectionManager& connectionMan
 {
 	clear();
 
+	mSocketType = SocketType::UDP_SOCKET;
 	mState = State::ACCEPTED;
 	mConnectionManager = &connectionManager;
 	mLocalConnectionID = 0;			// Not yet set, see "addConnection" below
@@ -316,6 +326,13 @@ void NetConnection::sendAcceptConnectionPacket()
 
 void NetConnection::handleLowLevelPacket(const ReceivedPacket& receivedPacket)
 {
+	// For security reasons, ignore senders that don't fit the stored sender address for this connection
+	if (receivedPacket.mSenderAddress.getHash() != getRemoteAddress().getHash())
+	{
+		RMX_ASSERT(false, "Packet dropped due to mismatch in sender address hash");
+		return;
+	}
+
 	// Reset timeout whenever any packet got received
 	mTimeoutStart = mCurrentTimestamp;
 	mLastMessageReceivedTimestamp = mCurrentTimestamp;	// TODO: It would be nice to use the actual timestamp of receiving the packet here, which happened previously already

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -66,11 +66,42 @@ namespace
 		// Allow re-use of the port
 		setSocketOptionBool(socket, SOL_SOCKET, SO_REUSEADDR, true);
 
+	#if !defined(PLATFORM_SWITCH)	// The IPv6 part won't compile on Switch, but isn't really needed there anyways
 		if (protocolFamily >= Sockets::ProtocolFamily::IPv6)
 		{
 			// Optionally allow IPv4 + IPv6 dual stack support on the socket
 			setSocketOptionBool(socket, IPPROTO_IPV6, IPV6_V6ONLY, protocolFamily != Sockets::ProtocolFamily::DualStack);
 		}
+	#endif
+	}
+
+#ifndef _WIN32
+	bool setBlocking(SOCKET socket, bool blocking)
+	{
+		// Set socket to blocking or non-blocking
+		int flags = fcntl(socket, F_GETFL, 0);
+		RMX_CHECK(flags >= 0, "fcntl failed with error: " << errno, return false);
+		if (blocking)
+			flags &= ~O_NONBLOCK;
+		else
+			flags |= O_NONBLOCK;
+
+		if (fcntl(socket, F_SETFL, flags) < 0)
+		{
+			RMX_ERROR("fcntl failed with error: " << errno, );
+			return false;
+		}
+		return true;
+	}
+#endif
+
+	int getErrorCode()
+	{
+	#ifdef _WIN32
+		return WSAGetLastError();
+	#else
+		return errno;
+	#endif
 	}
 }
 
@@ -110,7 +141,8 @@ bool Sockets::resolveToIP(const std::string& hostName, std::string& outIP, bool 
 	// Resolve host name to an IP
 	addrinfo* addrInfo = nullptr;
 	addrinfo hintsAddrInfo = {};
-	if (::getaddrinfo(hostName.c_str(), nullptr, &hintsAddrInfo, &addrInfo) == 0)
+	const int result = ::getaddrinfo(hostName.c_str(), nullptr, &hintsAddrInfo, &addrInfo);
+	if (result == 0)
 	{
 		addrinfo* firstAddrInfo = addrInfo;
 
@@ -166,21 +198,15 @@ std::string SocketAddress::toLoggedString() const
 	}
 }
 
-uint64 SocketAddress::getHash() const
-{
-	assureSockAddr();
-	return rmx::getMurmur2_64(mSockAddr, 16);
-}
-
 void SocketAddress::assureSockAddr() const
 {
 	if (!mHasSockAddr)
 	{
-		memset(&mSockAddr, 0, sizeof(mSockAddr));
 		bool success = false;
 	#if !defined(PLATFORM_SWITCH)	// The IPv6 part won't compile on Switch, but isn't really needed there anyways
 		{
 			// IPv6
+			memset(&mSockAddr, 0, sizeof(mSockAddr));
 			sockaddr_in6& addr = *reinterpret_cast<sockaddr_in6*>(&mSockAddr);
 			addr.sin6_family = AF_INET6;
 			addr.sin6_port = htons(mPort);
@@ -190,6 +216,7 @@ void SocketAddress::assureSockAddr() const
 		if (!success)
 		{
 			// IPv4
+			memset(&mSockAddr, 0, sizeof(mSockAddr));
 			sockaddr_in& addr = *reinterpret_cast<sockaddr_in*>(&mSockAddr);
 			addr.sin_family = AF_INET;
 			addr.sin_port = htons(mPort);
@@ -232,6 +259,16 @@ void SocketAddress::assureIpPort() const
 	}
 }
 
+void SocketAddress::assureAddrHash() const
+{
+	if (!mHasAddrHash)
+	{
+		assureSockAddr();
+		mAddrHash = rmx::getMurmur2_64(mSockAddr, 16);
+		mHasAddrHash = true;
+	}
+}
+
 
 struct TCPSocket::Internal
 {
@@ -267,17 +304,11 @@ void TCPSocket::close()
 		return;
 
 #ifdef _WIN32
-	int status = ::shutdown(mInternal->mSocket, SD_BOTH);
-	if (status == 0)
-	{
-		status = ::closesocket(mInternal->mSocket);
-	}
+	::shutdown(mInternal->mSocket, SD_BOTH);
+	::closesocket(mInternal->mSocket);
 #else
-	int status = shutdown(mInternal->mSocket, SHUT_RDWR);
-	if (status == 0)
-	{
-		status = ::close(mInternal->mSocket);
-	}
+	::shutdown(mInternal->mSocket, SHUT_RDWR);
+	::close(mInternal->mSocket);
 #endif
 
 	// Reset to defaults
@@ -332,26 +363,27 @@ bool TCPSocket::setupServer(uint16 serverPort, Sockets::ProtocolFamily protocolF
 	mInternal->mSocket = ::socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
 	if (mInternal->mSocket == INVALID_SOCKET)
 	{
-	#ifdef _WIN32
-		RMX_ERROR("socket failed with error: " << WSAGetLastError(), );
-	#else
-		RMX_ERROR("socket failed with error: " << result, );
-	#endif
+		RMX_ERROR("socket failed with error: " << getErrorCode(), );
 		close();
 		return false;
 	}
 
 	configureSocket(mInternal->mSocket, protocolFamily);
 
+#ifndef _WIN32
+	// Set socket to non-blocking
+	if (!setBlocking(mInternal->mSocket, false))
+	{
+		close();
+		return false;
+	}
+#endif
+
 	// Bind socket
 	result = ::bind(mInternal->mSocket, addr->ai_addr, (int)addr->ai_addrlen);
 	if (result != 0)
 	{
-	#ifdef _WIN32
-		RMX_ERROR("bind failed with error: " << WSAGetLastError(), );
-	#else
-		RMX_ERROR("bind failed with error: " << result, );
-	#endif
+		RMX_ERROR("bind failed with error: " << getErrorCode(), );
 		close();
 		return false;
 	}
@@ -360,20 +392,16 @@ bool TCPSocket::setupServer(uint16 serverPort, Sockets::ProtocolFamily protocolF
 	result = ::listen(mInternal->mSocket, SOMAXCONN);
 	if (result != 0)
 	{
-	#ifdef _WIN32
-		RMX_ERROR("listen failed with error: " << WSAGetLastError(), );
-	#else
-		RMX_ERROR("listen failed with error: " << result, );
-	#endif
+		RMX_ERROR("listen failed with error: " << getErrorCode(), );
 		close();
 		return false;
 	}
 
-	#ifdef _WIN32
-		// Switch socket to non-blocking (especially for sending)
-		u_long mode = 1;
-		ioctlsocket(mInternal->mSocket, FIONBIO, &mode);
-	#endif
+#ifdef _WIN32
+	// Switch socket to non-blocking (especially for sending)
+	u_long mode = 1;
+	ioctlsocket(mInternal->mSocket, FIONBIO, &mode);
+#endif
 
 	return true;
 }
@@ -384,14 +412,21 @@ bool TCPSocket::acceptConnection(TCPSocket& outSocket)
 	FD_ZERO(&socketSet);
 	FD_SET(mInternal->mSocket, &socketSet);
 	timeval timeout { 0, 0 };
+#ifdef _WIN32
 	const int result = ::select(0, &socketSet, nullptr, nullptr, &timeout);
+#else
+	const int result = ::select((int)(mInternal->mSocket) + 1, &socketSet, nullptr, nullptr, &timeout);
+#endif
 	if (result < 0)
 	{
 	#ifdef _WIN32
-		RMX_ERROR("select failed with error: " << WSAGetLastError(), );
+		const int errorCode = WSAGetLastError();
 	#else
-		RMX_ERROR("select failed with error: " << result, );
+		const int errorCode = errno;
+		if (errorCode == EINTR)
+			return false;
 	#endif
+		RMX_ERROR("select failed with error: " << errorCode, );
 		return false;
 	}
 
@@ -417,11 +452,12 @@ bool TCPSocket::acceptConnection(TCPSocket& outSocket)
 	outSocket.mInternal->mSocket = ::accept(mInternal->mSocket, (sockaddr*)&senderAddr, &senderAddrSize);
 	if (outSocket.mInternal->mSocket < 0)
 	{
-	#ifdef _WIN32
-		RMX_ERROR("accept failed with error: " << WSAGetLastError(), );
-	#else
-		RMX_ERROR("accept failed with error: " << outSocket.mInternal->mSocket, );
+		const int errorCode = getErrorCode();
+	#ifndef _WIN32
+		if (errorCode == EAGAIN || errorCode == EWOULDBLOCK)
+			return false;
 	#endif
+		RMX_ERROR("accept failed with error: " << errorCode, );
 		outSocket.mInternal->mSocket = INVALID_SOCKET;
 		return false;
 	}
@@ -485,8 +521,31 @@ bool TCPSocket::sendData(const uint8* data, size_t length)
 	if (!isValid())
 		return false;
 
-	const int result = ::send(mInternal->mSocket, (const char*)data, (int)length, 0);
-	return (result >= 0);
+	size_t sent = 0;
+	while (sent < length)
+	{
+	#ifdef _WIN32
+		constexpr int flags = 0;
+	#else
+		constexpr int flags = MSG_NOSIGNAL;
+	#endif
+		const size_t result = ::send(mInternal->mSocket, (const char*)(data + sent), (int)(length - sent), flags);
+		if (result > 0)
+		{
+			sent += (size_t)result;
+		}
+		else if (result == 0)
+		{
+			return false;
+		}
+	#ifndef _WIN32
+		else if (errno != EINTR)
+		{
+			return false;
+		}
+	#endif
+	}
+	return true;
 }
 
 bool TCPSocket::sendData(const std::vector<uint8>& data)
@@ -506,9 +565,10 @@ bool TCPSocket::receiveBlocking(ReceiveResult& outReceiveResult)
 	if (!mInternal->mIsBlockingSocket)
 	{
 		// Set to blocking
-		const int flags = fcntl(mInternal->mSocket, F_GETFL, 0);
-		fcntl(mInternal->mSocket, F_SETFL, flags & ~O_NONBLOCK);
-		mInternal->mIsBlockingSocket = true;
+		if (setBlocking(mInternal->mSocket, true))
+		{
+			mInternal->mIsBlockingSocket = true;
+		}
 	}
 #endif
 
@@ -536,9 +596,10 @@ bool TCPSocket::receiveNonBlocking(ReceiveResult& outReceiveResult)
 	if (mInternal->mIsBlockingSocket)
 	{
 		// Set to non-blocking
-		const int flags = fcntl(mInternal->mSocket, F_GETFL, 0);
-		fcntl(mInternal->mSocket, F_SETFL, flags | O_NONBLOCK);
-		mInternal->mIsBlockingSocket = false;
+		if (setBlocking(mInternal->mSocket, false))
+		{
+			mInternal->mIsBlockingSocket = false;
+		}
 	}
 	receiveInternal(outReceiveResult);
 
@@ -567,7 +628,7 @@ bool TCPSocket::receiveInternal(ReceiveResult& outReceiveResult)
 				return true;
 			}
 			// Otherwise continue
-}
+		}
 		else if (result == 0)
 		{
 			// Done
@@ -577,14 +638,15 @@ bool TCPSocket::receiveInternal(ReceiveResult& outReceiveResult)
 		else
 		{
 			outReceiveResult.mBuffer.clear();
+			const int errorCode = getErrorCode();
 		#ifdef _WIN32
-			const int errorCode = WSAGetLastError();
 			if (errorCode == WSAECONNRESET)		// Ignore this error, see https://stackoverflow.com/questions/30749423/is-winsock-error-10054-wsaeconnreset-normal-with-udp-to-from-localhost
 				return true;
-			RMX_ERROR("recv failed with error: " << errorCode, );
 		#else
-			RMX_ERROR("recv failed with error: " << result, );
+			if (errorCode == EAGAIN)
+				return true;
 		#endif
+			RMX_ERROR("recv failed with error: " << errorCode, );
 			return false;
 		}
 	}
@@ -621,17 +683,11 @@ void UDPSocket::close()
 		return;
 
 #ifdef _WIN32
-	int result = shutdown(mInternal->mSocket, SD_BOTH);
-	if (result == 0)
-	{
-		result = closesocket(mInternal->mSocket);
-	}
+	::shutdown(mInternal->mSocket, SD_BOTH);
+	::closesocket(mInternal->mSocket);
 #else
-	int result = shutdown(mInternal->mSocket, SHUT_RDWR);
-	if (result == 0)
-	{
-		result = ::close(mInternal->mSocket);
-	}
+	::shutdown(mInternal->mSocket, SHUT_RDWR);
+	::close(mInternal->mSocket);
 #endif
 
 	// Reset to defaults
@@ -669,11 +725,7 @@ bool UDPSocket::bindToPort(uint16 port, Sockets::ProtocolFamily protocolFamily)
 	result = (int)::socket(addressInfo->ai_family, addressInfo->ai_socktype, addressInfo->ai_protocol);
 	if (result < 0)
 	{
-	#ifdef _WIN32
-		RMX_ERROR("socket failed with error: " << WSAGetLastError(), );
-	#else
-		RMX_ERROR("socket failed with error: " << result, );
-	#endif
+		RMX_ERROR("socket failed with error: " << getErrorCode(), );
 		::freeaddrinfo(addressInfo);
 		return false;
 	}
@@ -685,11 +737,7 @@ bool UDPSocket::bindToPort(uint16 port, Sockets::ProtocolFamily protocolFamily)
 	result = ::bind(mInternal->mSocket, addressInfo->ai_addr, (int)addressInfo->ai_addrlen);
 	if (result < 0)
 	{
-	#ifdef _WIN32
-		RMX_ERROR("bind failed with error: " << WSAGetLastError(), );
-	#else
-		RMX_ERROR("bind failed with error: " << result, );
-	#endif
+		RMX_ERROR("bind failed with error: " << getErrorCode(), );
 		::freeaddrinfo(addressInfo);
 		close();
 		return false;
@@ -741,17 +789,21 @@ bool UDPSocket::sendData(const uint8* data, size_t length, const SocketAddress& 
 	if (!isValid())
 		return false;
 
-	const int result = ::sendto(mInternal->mSocket, (const char*)data, (int)length, 0, (sockaddr*)destinationAddress.getSockAddr(), (int)sizeof(sockaddr_storage));
+	int addrlen = 0;
+	const sockaddr* addr = (const sockaddr*)destinationAddress.getSockAddr();
+	int family = addr->sa_family;
+	if (family == AF_INET) {
+		addrlen = sizeof(sockaddr_in);
+	} else if (family == AF_INET6) {
+		addrlen = sizeof(sockaddr_in6);
+	} else {
+		addrlen = sizeof(sockaddr_storage); //Unknown address family
+	}
+	const int result = ::sendto(mInternal->mSocket, (const char*)data, (int)length, 0, addr, addrlen);
 	if (result >= 0)
 		return true;
 
-#ifdef _WIN32
-	const int errorCode = WSAGetLastError();
-	RMX_LOG_INFO("sendto failed with error: " << errorCode);
-#else
-	const int errorCode = errno;
-	RMX_LOG_INFO("sendto failed with error: " << errorCode);
-#endif
+	RMX_LOG_INFO("sendto failed with error: " << getErrorCode());
 	return false;
 }
 
@@ -772,9 +824,10 @@ bool UDPSocket::receiveBlocking(ReceiveResult& outReceiveResult)
 	if (!mInternal->mIsBlockingSocket)
 	{
 		// Set to blocking
-		const int flags = fcntl(mInternal->mSocket, F_GETFL, 0);
-		fcntl(mInternal->mSocket, F_SETFL, flags & ~O_NONBLOCK);
-		mInternal->mIsBlockingSocket = true;
+		if (setBlocking(mInternal->mSocket, true))
+		{
+			mInternal->mIsBlockingSocket = true;
+		}
 	}
 #endif
 
@@ -802,9 +855,10 @@ bool UDPSocket::receiveNonBlocking(ReceiveResult& outReceiveResult)
 	if (mInternal->mIsBlockingSocket)
 	{
 		// Set to non-blocking
-		const int flags = fcntl(mInternal->mSocket, F_GETFL, 0);
-		fcntl(mInternal->mSocket, F_SETFL, flags | O_NONBLOCK);
-		mInternal->mIsBlockingSocket = false;
+		if (setBlocking(mInternal->mSocket, false))
+		{
+			mInternal->mIsBlockingSocket = false;
+		}
 	}
 	receiveInternal(outReceiveResult);
 
@@ -830,7 +884,7 @@ bool UDPSocket::receiveInternal(ReceiveResult& outReceiveResult)
 		{
 			outReceiveResult.mBuffer.clear();
 		#ifdef _WIN32
-			const int errorCode = WSAGetLastError();
+			const int errorCode = getErrorCode();
 			if (errorCode == WSAECONNRESET)		// Ignore this error, see https://stackoverflow.com/questions/30749423/is-winsock-error-10054-wsaeconnreset-normal-with-udp-to-from-localhost
 				return true;
 			RMX_ERROR("recv failed with error: " << errorCode, );

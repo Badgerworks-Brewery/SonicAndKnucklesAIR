@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -13,10 +13,15 @@
 
 
 class InputManager;
-struct _SDL_Joystick;
-struct _SDL_GameController;
-typedef struct _SDL_Joystick SDL_Joystick;
-typedef struct _SDL_GameController SDL_GameController;
+#ifdef RMX_USE_SDL3
+	struct SDL_Joystick;
+	struct SDL_GameController;
+#else
+	struct _SDL_Joystick;
+	struct _SDL_GameController;
+	typedef struct _SDL_Joystick SDL_Joystick;
+	typedef struct _SDL_GameController SDL_GameController;
+#endif
 
 
 class InputFeeder

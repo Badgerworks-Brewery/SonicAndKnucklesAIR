@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -95,7 +95,11 @@ namespace rmx
 		char data[BUFFER_SIZE];
 		while (true)
 		{
+		#ifdef RMX_USE_SDL3
+			const size_t bytesRead = SDL_ReadIO(context, data, BUFFER_SIZE);
+		#else
 			const size_t bytesRead = SDL_RWread(context, data, 1, BUFFER_SIZE);
+		#endif
 			if (bytesRead == 0)
 				break;
 

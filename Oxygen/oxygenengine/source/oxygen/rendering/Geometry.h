@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -51,7 +51,7 @@ public:
 	PlaneGeometry(const Recti& activeRect, int planeIndex, bool priorityFlag, uint8 scrollOffsets, uint16 renderQueue);
 
 public:
-	int mPlaneIndex = 0;
+	int mPlaneIndex = 0;			// Plane index: 0 = plane B, 1 = plane A, 2 = plane W
 	bool mPriorityFlag = false;
 	Recti mActiveRect;
 	uint8 mScrollOffsets = 0;

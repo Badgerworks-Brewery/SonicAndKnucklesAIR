@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -10,6 +10,40 @@
 #include "oxygen/application/GameProfile.h"
 #include "oxygen/application/Configuration.h"
 #include "oxygen/helper/JsonHelper.h"
+
+
+namespace
+{
+	bool parseAddressRange(GameProfile::AddressRange& outRange, const String& input)
+	{
+		const int pos = input.findChar('-', 0, 1);
+		if (pos >= 0 && pos < input.length())
+		{
+			String part1 = input.getSubString(0, pos);
+			String part2 = input.getSubString(pos + 1, -1);
+			part1.trimWhitespace();
+			part2.trimWhitespace();
+			const uint32 value1 = (uint32)rmx::parseInteger(part1);
+			const uint32 value2 = (uint32)rmx::parseInteger(part2);
+			if (value1 <= value2)
+			{
+				outRange.first = value1;
+				outRange.second = value2;
+				return true;
+			}
+		}
+		else
+		{
+			String part = input;
+			part.trimWhitespace();
+			const uint32 value = (uint32)rmx::parseInteger(part);
+			outRange.first = value;
+			outRange.second = value;
+			return true;
+		}
+		return false;
+	}
+}
 
 
 bool GameProfile::loadOxygenProjectFromFile(const std::wstring& filename)
@@ -34,10 +68,10 @@ bool GameProfile::loadOxygenProjectFromJson(const Json::Value& jsonRoot)
 	// Update configuration
 	{
 		std::string romFile;
-		config.mMainScriptName = L"main.lemon";
+		mMainScriptName = L"main.lemon";	// Default
 
 		rootHelper.tryReadString("Rom", romFile);
-		rootHelper.tryReadString("MainScriptName", config.mMainScriptName);
+		rootHelper.tryReadString("MainScriptName", mMainScriptName);		// Deprecated JSON entry, prefer to use the one in "Scripts" instead
 		rootHelper.tryReadBool("CompileScripts", config.mForceCompileScripts);
 
 	#ifndef PLATFORM_MAC
@@ -51,6 +85,7 @@ bool GameProfile::loadOxygenProjectFromJson(const Json::Value& jsonRoot)
 
 	// Load metadata
 	{
+		rootHelper.tryReadString("Identifier", mIdentifier);
 		rootHelper.tryReadString("ShortName", mShortName);
 		rootHelper.tryReadString("FullName", mFullName);
 	}
@@ -100,6 +135,24 @@ bool GameProfile::loadOxygenProjectFromJson(const Json::Value& jsonRoot)
 				jsonHelper.tryReadString("SteamGameName", romInfo.mSteamGameName);
 				jsonHelper.tryReadString("SteamRomName", romInfo.mSteamRomName);
 
+				std::string romTypeString;
+				if (jsonHelper.tryReadString("RomType", romTypeString) && romTypeString == "PC")
+				{
+					romInfo.mRomType = RomType::PC;
+				}
+
+				std::string pcDataOffsetString;
+				if (jsonHelper.tryReadString("PCDataOffset", pcDataOffsetString))
+				{
+					romInfo.mPCDataOffset = (uint32)rmx::parseInteger(pcDataOffsetString);
+				}
+
+				std::string pcDataSizeString;
+				if (jsonHelper.tryReadString("PCDataSize", pcDataSizeString))
+				{
+					romInfo.mPCDataSize = (uint32)rmx::parseInteger(pcDataSizeString);
+				}
+
 				std::string overwritesString;
 				if (jsonHelper.tryReadString("Overwrites", overwritesString))
 				{
@@ -116,13 +169,14 @@ bool GameProfile::loadOxygenProjectFromJson(const Json::Value& jsonRoot)
 				std::string blankRegionsString;
 				if (jsonHelper.tryReadString("BlankRegions", blankRegionsString))
 				{
-					String value = blankRegionsString;
-					const int pos = value.findChar('-', 0, 1);
-					if (pos >= 0 && pos < value.length())
+					AddressRange range;
+					if (parseAddressRange(range, blankRegionsString))
 					{
-						const String address1 = value.getSubString(0, pos);
-						const String address2 = value.getSubString(pos + 1, -1);
-						romInfo.mBlankRegions.emplace_back((uint32)rmx::parseInteger(address1), (uint32)rmx::parseInteger(address2));
+						romInfo.mBlankRegions.emplace_back(range);
+					}
+					else
+					{
+						RMX_ERROR("Invalid range in BlankRegions", );
 					}
 				}
 
@@ -133,6 +187,28 @@ bool GameProfile::loadOxygenProjectFromJson(const Json::Value& jsonRoot)
 				}
 
 				jsonHelper.tryReadString("DiffFileName", romInfo.mDiffFileName);
+
+				jsonHelper.tryReadString("PatchSourceRomName", romInfo.mPatchSourceRomName);
+
+				const Json::Value patchRangesJson = (*it)["PatchRanges"];
+				if (patchRangesJson.isArray())
+				{
+					for (const Json::Value& rangeJson : patchRangesJson)
+					{
+						if (rangeJson.isString())
+						{
+							AddressRange range;
+							if (parseAddressRange(range, rangeJson.asString()))
+							{
+								romInfo.mPatchRanges.emplace_back(range);
+							}
+							else
+							{
+								RMX_ERROR("Invalid range in PatchRanges", );
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -143,6 +219,17 @@ bool GameProfile::loadOxygenProjectFromJson(const Json::Value& jsonRoot)
 		if (!mGameDataPath.empty())
 		{
 			config.mGameDataPath = config.mProjectPath + mGameDataPath;
+		}
+	}
+
+	// Load script configuration
+	{
+		const Json::Value scriptsJson = jsonRoot["Scripts"];
+		if (!scriptsJson.isNull())
+		{
+			JsonHelper jsonHelper(scriptsJson);
+			jsonHelper.tryReadString("MainScriptName", mMainScriptName);
+			jsonHelper.tryReadBool("ErrorOnUnknownAddress", mErrorOnUnknownAddress);
 		}
 	}
 
@@ -169,20 +256,21 @@ bool GameProfile::loadOxygenProjectFromJson(const Json::Value& jsonRoot)
 		const Json::Value emulationJson = jsonRoot["Emulation"];
 		if (!emulationJson.isNull())
 		{
+			rmx::JsonHelper emulationJsonHelper(emulationJson);
+			emulationJsonHelper.tryReadBool("PushPopAddressOnCall", mPushPopAddressOnCall);
+
 			const Json::Value asmStackRangeJson = emulationJson["AsmStackRange"];
 			if (asmStackRangeJson.isString())
 			{
-				String str(asmStackRangeJson.asString());
-				const int pos = str.findChar('-', 0, +1);
-				if (pos > 0 && pos < str.length() - 1)
+				AddressRange range;
+				if (parseAddressRange(range, asmStackRangeJson.asCString()))
 				{
-					String part1 = str.getSubString(0, pos);
-					String part2 = str.getSubString(pos + 1, -1);
-					part1.trimWhitespace();
-					part2.trimWhitespace();
-					mAsmStackRange.first  = 0xffff0000 | part1.parseInt();
-					mAsmStackRange.second = 0xffff0000 | part2.parseInt();
-					RMX_CHECK(mAsmStackRange.first < mAsmStackRange.second, "Invalid range in AsmStackRange", );
+					mAsmStackRange.first = range.first | 0xffff0000;
+					mAsmStackRange.second = range.second | 0xffff0000;
+				}
+				else
+				{
+					RMX_ERROR("Invalid range in AsmStackRange: " << asmStackRangeJson.asCString(), );
 				}
 			}
 
@@ -198,9 +286,17 @@ bool GameProfile::loadOxygenProjectFromJson(const Json::Value& jsonRoot)
 					{
 						for (Json::Value it2 : asmStackJson)
 						{
-							const uint32 address = (uint32)rmx::parseInteger(String(it2.asCString()));
-							stackLookup.mAsmStack.push_back(address);
+							AddressRange range;
+							if (parseAddressRange(range, it2.asCString()))
+							{
+								stackLookup.mAsmStack.emplace_back(range);
+							}
+							else
+							{
+								RMX_ERROR("Invalid range in AsmStack: " << it2.asCString(), );
+							}
 						}
+
 						for (Json::Value it2 : lemonStackJson)
 						{
 							LemonStackEntry& entry = vectorAdd(stackLookup.mLemonStack);

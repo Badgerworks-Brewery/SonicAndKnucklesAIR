@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -32,14 +32,18 @@ namespace
 
 void ConfigurationImpl::fillDefaultGameProfile(GameProfile& gameProfile)
 {
+	gameProfile.mIdentifier = "S3AIR";
 	gameProfile.mShortName = "Sonic 3 A.I.R.";
 	gameProfile.mFullName = "Sonic 3 - Angel Island Revisited";
 
 	gameProfile.mRomCheck.mSize = 0x400000;
 	gameProfile.mRomCheck.mChecksum = 0x344983ffcfeff8cb;
 
-	// Configure ROM info for both Genesis and PC versions
-	static const uint32 PC_SONIC3K_DATA_OFFSET = 0x153000;  // Start of game data in SONIC3K.EXE
+	// Configure ROM info for both Genesis and PC versions.
+	// SONIC3K.EXE embeds the Genesis-address-mapped game data verbatim at matching
+	// file byte offsets (offset 0, verified against a retail copy), since the PC
+	// port never executes 68k code and needed no relocation of the data tables.
+	static const uint32 PC_SONIC3K_DATA_OFFSET = 0x000000;
 	static const uint32 PC_SONIC3K_DATA_SIZE = 0x400000;    // 4MB of game data (matches Genesis ROM size)
 
 	gameProfile.mRomInfos.resize(2);
@@ -52,12 +56,24 @@ void ConfigurationImpl::fillDefaultGameProfile(GameProfile& gameProfile)
 	gameProfile.mRomInfos[0].mOverwrites.emplace_back(0x2001f0, 0x4a);
 
 	// PC Collection configuration
-	// Data in SONIC3K.EXE starts around 0x153000 and extends to ~0x420000
 	gameProfile.mRomInfos[1].mRomType = GameProfile::RomType::PC;
 	gameProfile.mRomInfos[1].mSteamGameName = "Sonic & Knuckles Collection";
 	gameProfile.mRomInfos[1].mSteamRomName = L"SONIC3K.EXE";
 	gameProfile.mRomInfos[1].mPCDataOffset = PC_SONIC3K_DATA_OFFSET;
 	gameProfile.mRomInfos[1].mPCDataSize = PC_SONIC3K_DATA_SIZE;
+
+	// Optional: if the user places a legitimately-owned Genesis ROM named below next to the
+	// executable, its bytes in this range overlay the PC data. This is needed because
+	// SONIC3K.EXE replaced this range's original 68k boot code -- and small data tables that
+	// were interleaved with it -- with native x86 code, so it can't be read from the PC
+	// executable at all. Verified empirically: without this overlay, boot crashes almost
+	// immediately (Kosinski.decompress reading a garbage pointer at title screen); with it,
+	// boot succeeds through the main menu and into the data select screen. Not yet a complete
+	// fix -- a later crash (VDP_copyToVRAM, save-slot icon graphics) indicates at least one
+	// more mismatched region above this range remains to be found.
+	gameProfile.mRomInfos[1].mPatchSourceRomName = L"Sonic_Knuckles_wSonic3.bin";
+	gameProfile.mRomInfos[1].mPatchRanges.clear();
+	gameProfile.mRomInfos[1].mPatchRanges.emplace_back(0x000000, 0x1ffff0);
 }
 
 ConfigurationImpl::ConfigurationImpl()
@@ -92,6 +108,9 @@ bool ConfigurationImpl::loadConfigurationInternal(JsonSerializer& serializer)
 
 bool ConfigurationImpl::loadSettingsInternal(JsonSerializer& serializer, SettingsType settingsType)
 {
+	if (settingsType != SettingsType::STANDARD)
+		return true;
+
 	serializeSettingsInternal(serializer);
 
 	if (mGameServerBase.mServerHostName == "sonic3air.org")
@@ -124,27 +143,25 @@ void ConfigurationImpl::serializeSettingsInternal(JsonSerializer& serializer)
 	}
 
 	// Audio
-	serializer.serialize("Audio_MusicVolume", mMusicVolume);
-	serializer.serialize("Audio_SoundVolume", mSoundVolume);
-	serializer.serialize("ActiveSoundtrack", mActiveSoundtrack);
+	if (serializer.beginObject("Audio"))
+	{
+		serializer.serialize("ActiveSoundtrack", mActiveSoundtrack);
+		serializer.endObject();
+	}
+	else if (serializer.isReading())
+	{
+		// Legacy support for old, more flat way of storing settings (before Jan 2026)
+		serializer.serialize("ActiveSoundtrack", mActiveSoundtrack);
+	}
 
 	// Input
 	serializer.serialize("GamepadVisualStyle", mGamepadVisualStyle);
 
 	// Game simulation
+	serializer.serialize("SimulationFrequency", mSimulationFrequency);
 	if (serializer.isReading())
 	{
-		if (serializer.serialize("SimulationFrequency", mSimulationFrequency))
-		{
-			mSimulationFrequency = clamp(mSimulationFrequency, 30, 240);
-		}
-	}
-	else
-	{
-		if (mSimulationFrequency != 60)
-		{
-			serializer.serialize("SimulationFrequency", mSimulationFrequency);
-		}
+		mSimulationFrequency = clamp(mSimulationFrequency, 30, 240);
 	}
 
 	// Time Attack
@@ -215,7 +232,7 @@ void ConfigurationImpl::serializeSettingsInternal(JsonSerializer& serializer)
 					continue;
 
 				int value = mLocalGameSettings.getValue(pair.first);
-				if (setting.mSerializationType == SharedDatabase::Setting::SerializationType::HIDDEN && value == setting.mDefaultValue)
+				if (setting.mSerializationType == SharedDatabase::Setting::SerializationType::HIDDEN && value == setting.mDefaultValue && !serializer.getCurrentJson().isMember(setting.mIdentifier))
 					continue;
 
 				serializer.serialize(setting.mIdentifier.c_str(), value);

@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -160,6 +160,29 @@ namespace math
 			*outIntersectionT0 = t0;
 		if (nullptr != outIntersectionT1)
 			*outIntersectionT1 = t1;
+		return true;
+	}
+
+	bool intersectLineWithSphere(const Line& line, const Vec3f& center, float radius, float* outIntersectionT0, float* outIntersectionT1)
+	{
+		// Resolve this equation:  (line.origin + line.dir * t - center) ^ 2 = radius ^ 2
+
+		const float a = 1.0f;
+		const float b = 2.0f * Vec3f::dot(line.getOrigin() - center, line.getDirection());
+		const float c = (line.getOrigin() - center).sqrLen() - radius * radius;
+
+		const float D = b * b - 4.0f * a * c;
+		if (D < 0.0f)
+			return false;
+
+		if (nullptr != outIntersectionT0 || nullptr != outIntersectionT1)
+		{
+			const float root = std::sqrt(D);
+			if (nullptr != outIntersectionT0)
+				*outIntersectionT0 = (-b - root) / (2.0f * a);
+			if (nullptr != outIntersectionT1)
+				*outIntersectionT1 = (-b + root) / (2.0f * a);
+		}
 		return true;
 	}
 

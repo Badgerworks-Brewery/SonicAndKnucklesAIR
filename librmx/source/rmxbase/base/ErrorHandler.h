@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -8,9 +8,9 @@
 
 #pragma once
 
-
 #include <sstream>
 #include <stdexcept> // for std::runtime_error
+#include <functional>
 
 
 // Debug break (platform specific)
@@ -102,6 +102,7 @@ namespace rmx
 	public:
 		static inline LoggerInterface* mLogger = nullptr;
 		static inline MessageBoxInterface* mMessageBoxImplementation = nullptr;
+		static inline std::function<uint64()> mNativeWindowHandleProvider;
 		static inline bool mShowAssertMessageBox = true;
 	};
 }

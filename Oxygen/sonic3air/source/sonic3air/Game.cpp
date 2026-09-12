@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -23,17 +23,18 @@
 #include "oxygen/application/gameview/GameView.h"
 #include "oxygen/application/input/ControlsIn.h"
 #include "oxygen/application/input/InputManager.h"
-#include "oxygen/application/modding/ModManager.h"
 #include "oxygen/application/video/VideoOut.h"
 #include "oxygen/drawing/software/Blitter.h"
+#include "oxygen/engine/modding/ModManager.h"
 #include "oxygen/helper/FileHelper.h"
 #include "oxygen/rendering/parts/RenderParts.h"
 #include "oxygen/simulation/CodeExec.h"
 #include "oxygen/simulation/EmulatorInterface.h"
 #include "oxygen/simulation/Simulation.h"
 
-#include <lemon/program/FunctionWrapper.h>
+#include <lemon/program/function/FunctionWrapper.h>
 #include <lemon/program/Module.h>
+#include <lemon/program/ModuleBindingsBuilder.h>
 
 
 namespace
@@ -99,7 +100,6 @@ void Game::update(float timeElapsed)
 {
 	// Update game client
 	mGameClient.updateClient(timeElapsed);
-	mCrowdControlClient.updateConnection(timeElapsed);
 
 	// Update sprite redirects (like input icons)
 	mDynamicSprites.updateSpriteRedirects();
@@ -147,103 +147,95 @@ void Game::update(float timeElapsed)
 
 void Game::registerScriptBindings(lemon::Module& module)
 {
+	lemon::ModuleBindingsBuilder builder(module);
+
 	const BitFlagSet<lemon::Function::Flag> defaultFlags(lemon::Function::Flag::ALLOW_INLINE_EXECUTION);
 	const BitFlagSet<lemon::Function::Flag> noInlineExecution;
 
 	// Game
 	{
-		module.addNativeFunction("Game.getSetting", lemon::wrap(*this, &Game::useSetting), defaultFlags)
-			.setParameterInfo(0, "settingId");
+		builder.addNativeFunction("Game.getSetting", lemon::wrap(*this, &Game::useSetting), defaultFlags)
+			.setParameters("settingId");
 
-		module.addNativeFunction("Game.isSecretUnlocked", lemon::wrap(*this, &Game::isSecretUnlocked), defaultFlags)
-			.setParameterInfo(0, "secretId");
+		builder.addNativeFunction("Game.isSecretUnlocked", lemon::wrap(*this, &Game::isSecretUnlocked), defaultFlags)
+			.setParameters("secretId");
 
-		module.addNativeFunction("Game.setSecretUnlocked", lemon::wrap(*this, &Game::setSecretUnlocked), defaultFlags)
-			.setParameterInfo(0, "secretId");
+		builder.addNativeFunction("Game.setSecretUnlocked", lemon::wrap(*this, &Game::setSecretUnlocked), defaultFlags)
+			.setParameters("secretId");
 
-		module.addNativeFunction("Game.triggerRestart", lemon::wrap(*this, &Game::triggerRestart), defaultFlags);
+		builder.addNativeFunction("Game.triggerRestart", lemon::wrap(*this, &Game::triggerRestart), defaultFlags);
 
-		module.addNativeFunction("Game.onGamePause", lemon::wrap(*this, &Game::onGamePause), defaultFlags)
-			.setParameterInfo(0, "canRestart");
+		builder.addNativeFunction("Game.onGamePause", lemon::wrap(*this, &Game::onGamePause), defaultFlags)
+			.setParameters("canRestart");
 
-		module.addNativeFunction("Game.allowRestartInGamePause", lemon::wrap(*this, &Game::allowRestartInGamePause), defaultFlags)
-			.setParameterInfo(0, "canRestart");
+		builder.addNativeFunction("Game.allowRestartInGamePause", lemon::wrap(*this, &Game::allowRestartInGamePause), defaultFlags)
+			.setParameters("canRestart");
 
-		module.addNativeFunction("Game.onLevelStart", lemon::wrap(*this, &Game::onLevelStart), defaultFlags);
+		builder.addNativeFunction("Game.onLevelStart", lemon::wrap(*this, &Game::onLevelStart), defaultFlags);
 
-		module.addNativeFunction("Game.onZoneActCompleted", lemon::wrap(*this, &Game::onZoneActCompleted), defaultFlags)
-			.setParameterInfo(0, "zoneAndAct");
+		builder.addNativeFunction("Game.onZoneActCompleted", lemon::wrap(*this, &Game::onZoneActCompleted), defaultFlags)
+			.setParameters("zoneAndAct");
 
-		module.addNativeFunction("Game.onTriggerNextZone", lemon::wrap(*this, &Game::onTriggerNextZone), defaultFlags)
-			.setParameterInfo(0, "zoneAndAct");
+		builder.addNativeFunction("Game.onTriggerNextZone", lemon::wrap(*this, &Game::onTriggerNextZone), defaultFlags)
+			.setParameters("zoneAndAct");
 
-		module.addNativeFunction("Game.onFadedOutLoadingZone", lemon::wrap(*this, &Game::onFadedOutLoadingZone), defaultFlags)
-			.setParameterInfo(0, "zoneAndAct");
+		builder.addNativeFunction("Game.onFadedOutLoadingZone", lemon::wrap(*this, &Game::onFadedOutLoadingZone), defaultFlags)
+			.setParameters("zoneAndAct");
 
-		module.addNativeFunction("Game.onCharacterDied", lemon::wrap(*this, &Game::onCharacterDied), noInlineExecution)		// No inline execution as this function manipulated the call stack
-			.setParameterInfo(0, "playerIndex");
+		builder.addNativeFunction("Game.onCharacterDied", lemon::wrap(*this, &Game::onCharacterDied), noInlineExecution)		// No inline execution as this function manipulated the call stack
+			.setParameters("playerIndex");
 
-		module.addNativeFunction("Game.returnToMainMenu", lemon::wrap(*this, &Game::returnToMainMenu), defaultFlags);
-		module.addNativeFunction("Game.openOptionsMenu", lemon::wrap(*this, &Game::openOptionsMenu), defaultFlags);
+		builder.addNativeFunction("Game.returnToMainMenu", lemon::wrap(*this, &Game::returnToMainMenu), defaultFlags);
+		builder.addNativeFunction("Game.openOptionsMenu", lemon::wrap(*this, &Game::openOptionsMenu), defaultFlags);
 
-		module.addNativeFunction("Game.isNormalGame", lemon::wrap(*this, &Game::isNormalGame), defaultFlags);
-		module.addNativeFunction("Game.isTimeAttack", lemon::wrap(*this, &Game::isTimeAttack), defaultFlags);
-		module.addNativeFunction("Game.onTimeAttackFinish", lemon::wrap(*this, &Game::onTimeAttackFinish), defaultFlags);
+		builder.addNativeFunction("Game.isNormalGame", lemon::wrap(*this, &Game::isNormalGame), defaultFlags);
+		builder.addNativeFunction("Game.isTimeAttack", lemon::wrap(*this, &Game::isTimeAttack), defaultFlags);
+		builder.addNativeFunction("Game.onTimeAttackFinish", lemon::wrap(*this, &Game::onTimeAttackFinish), defaultFlags);
 
-		module.addNativeFunction("Game.changePlanePatternRectAtex", lemon::wrap(*this, &Game::changePlanePatternRectAtex), defaultFlags)
-			.setParameterInfo(0, "px")
-			.setParameterInfo(1, "py")
-			.setParameterInfo(2, "width")
-			.setParameterInfo(3, "height")
-			.setParameterInfo(4, "planeIndex")
-			.setParameterInfo(5, "atex");
+		builder.addNativeFunction("Game.changePlanePatternRectAtex", lemon::wrap(*this, &Game::changePlanePatternRectAtex), defaultFlags)
+			.setParameters("px", "py", "width", "height", "planeIndex", "atex");
 
-		module.addNativeFunction("Game.setupBlueSpheresGroundSprites", lemon::wrap(*this, &Game::setupBlueSpheresGroundSprites), defaultFlags);
+		builder.addNativeFunction("Game.setupBlueSpheresGroundSprites", lemon::wrap(*this, &Game::setupBlueSpheresGroundSprites), defaultFlags);
 
-		module.addNativeFunction("Game.writeBlueSpheresData", lemon::wrap(*this, &Game::writeBlueSpheresData), defaultFlags)
-			.setParameterInfo(0, "targetAddress")
-			.setParameterInfo(1, "sourceAddress")
-			.setParameterInfo(2, "px")
-			.setParameterInfo(3, "py")
-			.setParameterInfo(4, "rotation");
+		builder.addNativeFunction("Game.writeBlueSpheresData", lemon::wrap(*this, &Game::writeBlueSpheresData), defaultFlags)
+			.setParameters("targetAddress", "sourceAddress", "px", "py", "rotation");
 
-		module.addNativeFunction("Game.getAchievementValue", lemon::wrap(*this, &Game::getAchievementValue), defaultFlags)
-			.setParameterInfo(0, "achievementId");
+		builder.addNativeFunction("Game.getAchievementValue", lemon::wrap(*this, &Game::getAchievementValue), defaultFlags)
+			.setParameters("achievementId");
 
-		module.addNativeFunction("Game.setAchievementValue", lemon::wrap(*this, &Game::setAchievementValue), defaultFlags)
-			.setParameterInfo(0, "achievementId")
-			.setParameterInfo(1, "value");
+		builder.addNativeFunction("Game.setAchievementValue", lemon::wrap(*this, &Game::setAchievementValue), defaultFlags)
+			.setParameters("achievementId", "value");
 
-		module.addNativeFunction("Game.isAchievementComplete", lemon::wrap(*this, &Game::isAchievementComplete), defaultFlags)
-			.setParameterInfo(0, "achievementId");
+		builder.addNativeFunction("Game.isAchievementComplete", lemon::wrap(*this, &Game::isAchievementComplete), defaultFlags)
+			.setParameters("achievementId");
 
-		module.addNativeFunction("Game.setAchievementComplete", lemon::wrap(*this, &Game::setAchievementComplete), defaultFlags)
-			.setParameterInfo(0, "achievementId");
+		builder.addNativeFunction("Game.setAchievementComplete", lemon::wrap(*this, &Game::setAchievementComplete), defaultFlags)
+			.setParameters("achievementId");
 
-		module.addNativeFunction("Game.startSkippableCutscene", lemon::wrap(*this, &Game::startSkippableCutscene), defaultFlags);
-		module.addNativeFunction("Game.endSkippableCutscene", lemon::wrap(*this, &Game::endSkippableCutscene), defaultFlags);
-		module.addNativeFunction("Game.isInSkippableCutscene", lemon::wrap(*this, &Game::isInSkippableCutscene), defaultFlags);
+		builder.addNativeFunction("Game.startSkippableCutscene", lemon::wrap(*this, &Game::startSkippableCutscene), defaultFlags);
+		builder.addNativeFunction("Game.endSkippableCutscene", lemon::wrap(*this, &Game::endSkippableCutscene), defaultFlags);
+		builder.addNativeFunction("Game.isInSkippableCutscene", lemon::wrap(*this, &Game::isInSkippableCutscene), defaultFlags);
 	}
 
 	// Discord
 	{
-		module.addNativeFunction("Game.setDiscordDetails", lemon::wrap(&setDiscordDetails), defaultFlags)
-			.setParameterInfo(0, "text");
+		builder.addNativeFunction("Game.setDiscordDetails", lemon::wrap(&setDiscordDetails), defaultFlags)
+			.setParameters("text");
 
-		module.addNativeFunction("Game.setDiscordState", lemon::wrap(&setDiscordState), defaultFlags)
-			.setParameterInfo(0, "text");
+		builder.addNativeFunction("Game.setDiscordState", lemon::wrap(&setDiscordState), defaultFlags)
+			.setParameters("text");
 
-		module.addNativeFunction("Game.setDiscordLargeImage", lemon::wrap(&setDiscordLargeImage), defaultFlags)
-			.setParameterInfo(0, "imageName");
+		builder.addNativeFunction("Game.setDiscordLargeImage", lemon::wrap(&setDiscordLargeImage), defaultFlags)
+			.setParameters("imageName");
 
-		module.addNativeFunction("Game.setDiscordSmallImage", lemon::wrap(&setDiscordSmallImage), defaultFlags)
-			.setParameterInfo(0, "imageName");
+		builder.addNativeFunction("Game.setDiscordSmallImage", lemon::wrap(&setDiscordSmallImage), defaultFlags)
+			.setParameters("imageName");
 	}
 
 	// Audio
 	{
-		module.addNativeFunction("Game.setUnderwaterAudioEffect", lemon::wrap(&setUnderwaterAudioEffect), defaultFlags)
-			.setParameterInfo(0, "value");
+		builder.addNativeFunction("Game.setUnderwaterAudioEffect", lemon::wrap(&setUnderwaterAudioEffect), defaultFlags)
+			.setParameters("value");
 	}
 
 	ScriptImplementations::registerScriptBindings(module);
@@ -302,7 +294,7 @@ void Game::setSetting(uint32 settingId, uint32 value)
 	ConfigurationImpl::instance().mActiveGameSettings->setValue(settingId, value);
 }
 
-void Game::checkForUnlockedSecrets()
+void Game::checkForUnlockedSecrets(bool saveIfAnyUnlocked)
 {
 	// Check for unlocked secrets
 	uint32 achievementsCompleted = 0;
@@ -314,6 +306,7 @@ void Game::checkForUnlockedSecrets()
 		}
 	}
 
+	bool anyUnlocked = false;
 	for (const SharedDatabase::Secret& secret : SharedDatabase::getSecrets())
 	{
 		if (secret.mUnlockedByAchievements && !mPlayerProgress.mUnlocks.isSecretUnlocked(secret.mType) && achievementsCompleted >= secret.mRequiredAchievements)
@@ -321,8 +314,19 @@ void Game::checkForUnlockedSecrets()
 			// Unlock secret now
 			mPlayerProgress.mUnlocks.setSecretUnlocked(secret.mType);
 			GameApp::instance().showUnlockedWindow(SecretUnlockedWindow::EntryType::SECRET, "Secret unlocked!", secret.mName);
+			anyUnlocked = true;
 		}
 	}
+
+	if (anyUnlocked && saveIfAnyUnlocked)
+	{
+		mPlayerProgress.save();
+	}
+}
+
+void Game::unlockSecret(uint32 secretId)
+{
+	setSecretUnlocked(secretId);
 }
 
 void Game::startIntoTitleScreen()
@@ -530,23 +534,6 @@ void Game::onPostUpdateFrame()
 
 	// Update ghost sync
 	GameClient::instance().getGhostSync().onPostUpdateFrame();
-
-	// Check for unlocked hidden secrets
-	//  - SECRET_LEVELSELECT	unlocked when u8[0x02219e] changes from 0xb2 to 0x14
-	//  - SECRET_TITLE_SK		unlocked when u8[0x065fde] changes from 0x08 to 0x93
-	//  - SECRET_GAME_SPEED		unlocked when u64[0x003e32] changes from 0xd522427870e16100 to 0x0101020201010101 (= up, up, down, down, up, up, up, up)
-	if (emulatorInterface.readMemory8(0x02219e) == 0x14)
-	{
-		setSecretUnlocked(SharedDatabase::Secret::SECRET_LEVELSELECT);
-	}
-	if (emulatorInterface.readMemory8(0x065fde) == 0x93)
-	{
-		setSecretUnlocked(SharedDatabase::Secret::SECRET_TITLE_SK);
-	}
-	if (emulatorInterface.readMemory64(0x003e32) == 0x0101020201010101ull)
-	{
-		setSecretUnlocked(SharedDatabase::Secret::SECRET_GAME_SPEED);
-	}
 
 	if (mReceivedTimeAttackFinished)
 	{
@@ -847,13 +834,6 @@ void Game::checkActiveModsUsedFeatures()
 	const bool usesThreePlayers = ModManager::instance().anyActiveModUsesFeature(rmx::constMurmur2_64("ThreePlayers"));
 	const bool usesFourPlayers = ModManager::instance().anyActiveModUsesFeature(rmx::constMurmur2_64("FourPlayers"));
 	Configuration::instance().mNumPlayers = usesFourPlayers ? 4 : usesThreePlayers ? 3 : 2;
-
-	// Check mods for usage of Crowd Control
-	const bool usesCrowdControl = ModManager::instance().anyActiveModUsesFeature(rmx::constMurmur2_64("CrowdControl"));
-	if (usesCrowdControl)
-		mCrowdControlClient.startConnection();
-	else
-		mCrowdControlClient.stopConnection();
 }
 
 void Game::startIntoGameInternal()
@@ -936,7 +916,7 @@ void Game::setAchievementComplete(uint32 achievementId)
 			RMX_ERROR("Achievement not found", );
 		}
 
-		checkForUnlockedSecrets();
+		checkForUnlockedSecrets(false);
 		mPlayerProgress.save();
 	}
 }
@@ -954,7 +934,7 @@ void Game::setSecretUnlocked(uint32 secretId)
 	if (!mPlayerProgress.mUnlocks.isSecretUnlocked(secretId))
 	{
 		mPlayerProgress.mUnlocks.setSecretUnlocked(secretId);
-		const char* text = (secret->mType == SharedDatabase::Secret::SECRET_DOOMSDAY_ZONE) ? "Unlocked in Act Select" : "Found hidden secret!";
+		const char* text = (secret->mType == SharedDatabase::Secret::SECRET_DOOMSDAY_ZONE) ? "Unlocked in Act Select" : secret->mHiddenUntilUnlocked ? "Found hidden secret!" : "Secret unlocked!";
 		GameApp::instance().showUnlockedWindow(SecretUnlockedWindow::EntryType::SECRET, text, secret->mName);
 		mPlayerProgress.save();
 	}
@@ -1022,7 +1002,7 @@ void Game::returnToMainMenu()
 	mReturnToMenuTriggered = true;
 
 	// Do not restart data select music
-	if (AudioOut::instance().isPlayingSfxId(0x2f))
+	if (AudioOut::instance().isPlayingAudioKey(0x2f))
 	{
 		AudioOut::instance().moveIngameMusicToMenu();
 	}

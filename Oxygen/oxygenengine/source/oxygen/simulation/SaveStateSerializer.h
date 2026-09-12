@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -24,6 +24,9 @@ public:
 		OXYGEN	= 1,
 		GENSX	= 2
 	};
+
+public:
+	static inline uint32 mLastReadPC = 0;		// Only relevant after reading a Gensx emulator save state
 
 public:
 	SaveStateSerializer(Simulation& simulation, RenderParts& renderParts);

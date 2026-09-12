@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -41,7 +41,7 @@ bool FilePackage::loadPackage(std::wstring_view packageFilename, std::map<std::w
 	return true;
 }
 
-void FilePackage::createFilePackage(const std::wstring& packageFilename, const std::vector<std::wstring>& includedPaths, const std::vector<std::wstring>& excludedPaths, const std::wstring& comparisonPath, uint32 contentVersion, bool forceReplace)
+void FilePackage::createFilePackage(const std::wstring& packageFilename, const std::wstring& basePath, const std::vector<std::wstring>& includedPaths, const std::vector<std::wstring>& excludedPaths, const std::wstring& comparisonPath, uint32 contentVersion, bool forceReplace)
 {
 	// Collect file contents
 	std::map<std::wstring, PackedFile> packedFiles;
@@ -49,19 +49,21 @@ void FilePackage::createFilePackage(const std::wstring& packageFilename, const s
 		FileCrawler fc;
 		for (const std::wstring& includedPath : includedPaths)
 		{
-			fc.addFiles(includedPath, true);
+			fc.addFiles(basePath + includedPath, true);
 			// TODO: Remove duplicates
 		}
 
 		for (size_t i = 0; i < fc.size(); ++i)
 		{
 			const auto& entry = *fc[i];
-			std::wstring path = entry.mPath + entry.mFilename;
+			const std::wstring path = entry.mPath + entry.mFilename;
+			RMX_CHECK(rmx::startsWith(path, basePath), "Path \"" << rmx::convertToUTF8(path) << "\" does not start with the given base path \"" << rmx::convertToUTF8(basePath) << "\"", continue);
+			const std::wstring relativePath = path.substr(basePath.length());
 
 			bool add = true;
 			for (const std::wstring& excludedPath : excludedPaths)
 			{
-				if (utils::startsWith(path, excludedPath))
+				if (rmx::startsWith(relativePath, excludedPath))
 				{
 					add = false;
 					break;
@@ -73,7 +75,7 @@ void FilePackage::createFilePackage(const std::wstring& packageFilename, const s
 				std::vector<uint8> content;
 				if (FTX::FileSystem->readFile(path, content))
 				{
-					PackedFile& packedFile = packedFiles[path];
+					PackedFile& packedFile = packedFiles[relativePath];
 					packedFile.mContent.swap(content);
 				}
 			}

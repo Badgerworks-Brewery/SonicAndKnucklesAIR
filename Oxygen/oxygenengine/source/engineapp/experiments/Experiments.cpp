@@ -1,3 +1,11 @@
+/*
+*	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
+*	Copyright (C) 2017-2026 by Eukaryot
+*
+*	Published under the GNU GPLv3 open source software license, see license.txt
+*	or https://www.gnu.org/licenses/gpl-3.0.en.html
+*/
+
 #include "engineapp/pch.h"
 #include "engineapp/experiments/Experiments.h"
 
@@ -58,7 +66,7 @@ void Experiments::onPostFrameUpdate()
 
 
 	static int16 soundBuffer[0x10000];
-	
+
 	std::vector<uint32> writes;
 	for (AudioData& audioData : mCurrentFrame->mAudioData)
 	{
@@ -98,7 +106,7 @@ void Experiments::onPostFrameUpdate()
 		mAudioBuffer.addData(pcmPtr, length);
 	}
 
-	if (!mAudioRef.valid())
+	if (!mAudioRef.isValid())
 	{
 		FTX::Audio->addSound(&mAudioBuffer, mAudioRef, true);
 	}

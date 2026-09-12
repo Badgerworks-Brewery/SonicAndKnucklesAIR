@@ -15,7 +15,7 @@ option(BUILD_OXYGEN_SERVER "Build the Oxygen server executable" OFF)
 option(BUILD_SDL_STATIC "Build SDL as a static library instead of a shared / dynamic one" ON)
 option(USE_GLES "Use OpenGLESv2" OFF)
 option(USE_DISCORD "Use Discord API" ON)
-option(USE_IMGUI "Use ImGui for scripts development" ON)
+option(USE_IMGUI "Use ImGui, required for dev mode and system windows" ON)
 
 
 if (USE_GLES)
@@ -53,6 +53,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(WORKSPACE_DIR ../../../..)
 
 #add_definitions(-DDEBUG)
+if (USE_IMGUI)
+	add_definitions(-DUSE_IMGUI)
+endif()
 
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -180,9 +183,20 @@ endif()
 
 
 
+# curl
+if (WIN32)
+	set(BUILD_CURL_EXE OFF)
+	add_subdirectory(${WORKSPACE_DIR}/framework/external/curl/curl curl)
+	include_directories(${WORKSPACE_DIR}/framework/external/curl/curl/include)
+endif()
+
+
+
 # imgui
 if (USE_IMGUI)
-	file(GLOB_RECURSE IMGUI_SOURCES ${WORKSPACE_DIR}/framework/external/imgui/imgui/*.cpp)
+	file(GLOB IMGUI_SOURCES ${WORKSPACE_DIR}/framework/external/imgui/imgui/*.cpp
+							${WORKSPACE_DIR}/framework/external/imgui/imgui/backends/imgui_impl_opengl3.cpp
+							${WORKSPACE_DIR}/framework/external/imgui/imgui/backends/imgui_impl_sdl2.cpp)
 
 	add_library(imgui ${IMGUI_SOURCES})
 
@@ -283,6 +297,9 @@ if (NOT CMAKE_VERSION VERSION_LESS "3.16.0")
 endif()
 
 target_link_libraries(oxygen_netcore rmxbase)
+if (WIN32)
+	target_link_libraries(oxygen_netcore ws2_32)
+endif()
 
 
 

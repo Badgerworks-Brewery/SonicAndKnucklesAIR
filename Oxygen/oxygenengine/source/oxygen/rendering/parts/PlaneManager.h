@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -20,7 +20,7 @@ public:
 	{
 		PLANE_B		= 0,	// Plane B, background
 		PLANE_A		= 1,	// Plane A, foreground
-		PLANE_W		= 2,	// Plane W, window (rarely used)
+		PLANE_W		= 2,	// Plane W, window (optionally split out of plane A)
 		PLANE_DEBUG	= 3		// Additional plane containing all patterns for debug output
 	};
 
@@ -30,6 +30,12 @@ public:
 		uint8 mSourcePlane = 0;
 		uint8 mScrollOffsets = 0;
 		uint16 mRenderQueue = 0;
+	};
+
+	struct PlaneRect
+	{
+		PlaneType mPlane = PLANE_B;
+		Recti mRect;
 	};
 
 public:
@@ -64,8 +70,12 @@ public:
 	uint16 getPatternAtIndex(int planeIndex, uint16 patternIndex) const;
 	void setPatternAtIndex(int planeIndex, uint16 patternIndex, uint16 value);
 
-	inline uint16 getPlaneAWSplit() const  { return mPlaneAWSplit; }
-	void setupPlaneW(bool use, uint16 splitY);
+	inline bool isPlaneWBelowSplitY() const  { return mIsPlaneWBelowSplitY; }
+	inline uint16 getPlaneAWSplitY() const	 { return mPlaneAWSplitY; }
+	void setWindowPlaneSplitX(bool rightSideWindow, uint16 splitX);
+	void setWindowPlaneSplitY(bool bottomWindow, uint16 splitY);
+	void setRenderPlaneABehindW(bool renderPlaneABehindW);
+	void getPlaneRects(std::vector<PlaneRect>& output, const Recti& fullscreenRect) const;
 
 	void dumpAsPaletteBitmap(PaletteBitmap& output, int planeIndex, bool highlightPrioPatterns = false) const;
 
@@ -90,8 +100,11 @@ private:
 	Vec2i mPlayfieldSize;		// In patterns (8x8 pixels)
 	uint16 mPlanePatternsBuffer[4][0x1000] = { 0 };		// Enough space to support 128 x 32 patterns (though usually only 0x800 is needed, for 64 x 32 patterns)
 
-	bool mUsingPlaneW = false;
-	uint16 mPlaneAWSplit = 0;
+	bool mIsPlaneWRightOfSplitX = false;	// If true, plane W is right of plane A, otherwise it's left of plane A
+	bool mIsPlaneWBelowSplitY = false;		// If true, plane W is below plane A, otherwise it's above plane A
+	uint16 mPlaneAWSplitX = 0;
+	uint16 mPlaneAWSplitY = 0;
+	bool mRenderPlaneABehindW = false;		// If true, render plane A fullscreen, even where the screen intersects with plane W
 
 	bool mDisabledDefaultPlane[4];
 	std::vector<CustomPlane> mCustomPlanes;

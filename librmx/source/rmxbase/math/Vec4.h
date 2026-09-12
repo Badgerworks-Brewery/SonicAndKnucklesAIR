@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -35,14 +35,8 @@ public:
 	explicit Vec4(const TYPE* vec)	{ FORi(data[i] = vec[i]); }
 
 	Vec4(const Vec4& source) : x(source.x), y(source.y), z(source.z), w(source.w) {}
+	Vec4(const Vec3<TYPE>& source, TYPE w_) : x(source.x), y(source.y), z(source.z), w(w_) {}
 	Vec4(TYPE x_, TYPE y_, TYPE z_, TYPE w_) : x(x_), y(y_), z(z_), w(w_) {}
-
-	Vec4(const Vec3<TYPE>& source, TYPE w_)
-	{
-		for (int i = 0; i < 3; ++i)
-			data[i] = source.data[i];
-		w = w_;
-	}
 
 	template<typename T> explicit Vec4(const Vec4<T>& source)
 	{

@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -45,6 +45,11 @@ namespace rmx
 	bool RealFileProvider::renameFile(const std::wstring& oldFilename, const std::wstring& newFilename)
 	{
 		return FileIO::renameFile(oldFilename, newFilename);
+	}
+
+	bool RealFileProvider::renameDirectory(const std::wstring& oldPath, const std::wstring& newPath)
+	{
+		return FileIO::renameDirectory(oldPath, newPath);
 	}
 
 	bool RealFileProvider::listFiles(const std::wstring& path, bool recursive, std::vector<FileIO::FileEntry>& outFileEntries)

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -11,7 +11,7 @@
 #include "sonic3air/menu/SharedResources.h"
 
 #include "oxygen/application/Configuration.h"
-#include "oxygen/application/EngineMain.h"
+#include "oxygen/engine/EngineMain.h"
 #include "oxygen/platform/PlatformFunctions.h"
 
 
@@ -29,14 +29,8 @@ void ApplicationContextMenu::initialize()
 
 	if (mItems.empty())
 	{
-		#if defined(PLATFORM_WINDOWS) || defined(PLATFORM_MAC)
-			#define DIRECTORY_STRING "folder"
-		#else
-			#define DIRECTORY_STRING "directory"
-		#endif
-
-		mItems.emplace_back(Item { "Open saved data " DIRECTORY_STRING, Item::Function::OPEN_SAVED_DATA_DIRECTORY });
-		mItems.emplace_back(Item { "Open mods " DIRECTORY_STRING,		Item::Function::OPEN_MODS_DIRECTORY });
+		mItems.emplace_back(Item { "Open saved data " PLATFORM_DIRECTORY_STRING, Item::Function::OPEN_SAVED_DATA_DIRECTORY });
+		mItems.emplace_back(Item { "Open mods " PLATFORM_DIRECTORY_STRING,		Item::Function::OPEN_MODS_DIRECTORY });
 	#if 0
 		// TODO: This does not work well on Windows
 		mItems.emplace_back(Item { "Open log file",						Item::Function::OPEN_LOGFILE });

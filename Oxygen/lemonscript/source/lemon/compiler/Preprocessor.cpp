@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -352,12 +352,12 @@ namespace lemon
 	{
 		switch (token.getType())
 		{
-			case Token::Type::CONSTANT:
+			case ConstantToken::TYPE:
 			{
 				return token.as<ConstantToken>().mValue.get<int64>();
 			}
 
-			case Token::Type::PARENTHESIS:
+			case ParenthesisToken::TYPE:
 			{
 				const ParenthesisToken& pt = token.as<ParenthesisToken>();
 				CHECK_ERROR(pt.mParenthesisType == ParenthesisType::PARENTHESIS, "Brackets are not allowed in preprocessor condition", mLineNumber);
@@ -366,7 +366,7 @@ namespace lemon
 				return evaluateConstantToken(pt.mContent[0].as<StatementToken>());
 			}
 
-			case Token::Type::BINARY_OPERATION:
+			case BinaryOperationToken::TYPE:
 			{
 				const BinaryOperationToken& bot = token.as<BinaryOperationToken>();
 				switch (bot.mOperator)
@@ -386,7 +386,7 @@ namespace lemon
 				break;
 			}
 
-			case Token::Type::UNARY_OPERATION:
+			case UnaryOperationToken::TYPE:
 			{
 				const UnaryOperationToken& uot = token.as<UnaryOperationToken>();
 				switch (uot.mOperator)

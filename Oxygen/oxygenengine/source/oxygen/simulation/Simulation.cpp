@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -16,11 +16,11 @@
 #include "oxygen/simulation/SimulationState.h"
 #include "oxygen/simulation/analyse/ROMDataAnalyser.h"
 #include "oxygen/application/Configuration.h"
-#include "oxygen/application/EngineMain.h"
 #include "oxygen/application/audio/AudioOutBase.h"
 #include "oxygen/application/input/InputRecorder.h"
-#include "oxygen/application/modding/ModManager.h"
 #include "oxygen/application/video/VideoOut.h"
+#include "oxygen/engine/EngineMain.h"
+#include "oxygen/engine/modding/ModManager.h"
 #include "oxygen/helper/Logging.h"
 #include "oxygen/network/netplay/NetplayManager.h"
 #include "oxygen/platform/PlatformFunctions.h"
@@ -81,11 +81,11 @@ bool Simulation::startup()
 
 	// Optionally load save state
 	mStateLoaded.clear();
-	if (success && EngineMain::getDelegate().useDeveloperFeatures() && !config.mLoadSaveState.empty())
+	if (success && EngineMain::getDelegate().useDeveloperFeatures() && !config.mLoadSaveState.empty() && config.mStartPhase == 3)
 	{
 		success = loadState(config.mSaveStatesDirLocal + config.mLoadSaveState + L".state", false);
 		if (!success)
-			loadState(config.mSaveStatesDir + config.mLoadSaveState + L".state");
+			loadState(config.mSaveStatesDir + config.mLoadSaveState + L".state", false);
 	}
 	RMX_LOG_INFO("Runtime environment ready");
 
@@ -300,8 +300,8 @@ void Simulation::update(float timeElapsed)
 
 	if (mFrameNumber < requiredFrameNumber)
 	{
-		const uint32 startTime = SDL_GetTicks();
-		const uint32 limitTime = startTime + 200;
+		const SDL_TicksType startTime = SDL_GetTicks();
+		const SDL_TicksType limitTime = startTime + 200;
 
 		while (mFrameNumber < requiredFrameNumber)
 		{
@@ -611,7 +611,7 @@ uint32 Simulation::saveGameRecording(WString* outFilename)
 	{
 		filename = L"gamerecording_" + String(timeString).toStdWString() + L".bin";
 	}
-	filename = Configuration::instance().mAppDataPath + L"gamerecordings/" + filename;
+	filename = Configuration::instance().mGameAppDataPath + L"gamerecordings/" + filename;
 
 	if (!mGameRecorder.saveRecording(filename, 180))
 		return 0;

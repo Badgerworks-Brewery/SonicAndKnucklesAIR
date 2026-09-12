@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -8,10 +8,10 @@
 
 #include "oxygen/pch.h"
 #include "oxygen/application/input/InputManager.h"
-#include "oxygen/application/modding/ModManager.h"
 #include "oxygen/application/overlays/TouchControlsOverlay.h"
 #include "oxygen/application/Configuration.h"
-#include "oxygen/devmode/ImGuiIntegration.h"
+#include "oxygen/engine/modding/ModManager.h"
+#include "oxygen/menu/imgui/ImGuiIntegration.h"
 #include "oxygen/helper/Logging.h"
 #include "oxygen/rendering/utils/RenderUtils.h"
 #include "oxygen/simulation/LogDisplay.h"
@@ -334,19 +334,22 @@ void InputManager::updateInput(float timeElapsed)
 
 	// Update touches
 	mActiveTouches.clear();
-	if (mTouchInputEnabled)
+	if (!FTX::System->wasEventConsumed())
 	{
-		const int touchDevices = SDL_GetNumTouchDevices();
-		for (int k = 0; k < touchDevices; ++k)
+		if (mTouchInputEnabled)
 		{
-			const SDL_TouchID touchId = SDL_GetTouchDevice(k);
-			const int numFingers = SDL_GetNumTouchFingers(touchId);
-			for (int i = 0; i < numFingers; ++i)
+			const int touchDevices = SDL_GetNumTouchDevices();
+			for (int k = 0; k < touchDevices; ++k)
 			{
-				const SDL_Finger* finger = SDL_GetTouchFinger(touchId, i);
-				if (nullptr != finger)
+				const SDL_TouchID touchId = SDL_GetTouchDevice(k);
+				const int numFingers = SDL_GetNumTouchFingers(touchId);
+				for (int i = 0; i < numFingers; ++i)
 				{
-					vectorAdd(mActiveTouches).mPosition.set(finger->x, finger->y);
+					const SDL_Finger* finger = SDL_GetTouchFinger(touchId, i);
+					if (nullptr != finger)
+					{
+						vectorAdd(mActiveTouches).mPosition.set(finger->x, finger->y);
+					}
 				}
 			}
 		}
@@ -398,7 +401,7 @@ void InputManager::updateInput(float timeElapsed)
 					if (control->mRepeatTimeout <= 0.0f)
 					{
 						control->mRepeat = true;
-						control->mRepeatTimeout = std::max(control->mRepeatTimeout + 0.125f, 0.05f);
+						control->mRepeatTimeout = std::max(control->mRepeatTimeout + 0.1f, 0.04f);
 					}
 				}
 				mAnythingPressed = true;
@@ -444,7 +447,7 @@ void InputManager::updateInput(float timeElapsed)
 	}
 
 	// Update controller rumble
-	const uint32 currentTicks = SDL_GetTicks();
+	const SDL_TicksType currentTicks = SDL_GetTicks();
 	for (int playerIndex = 0; playerIndex < (int)NUM_PLAYERS; ++playerIndex)
 	{
 		// Check if rumble intensity has changed - or if the player switched to a different input device
@@ -468,6 +471,15 @@ void InputManager::injectSDLInputEvent(const SDL_Event& ev)
 	{
 		case SDL_KEYDOWN:
 		{
+		#ifdef RMX_USE_SDL3
+			if (ev.key.down)	// This check may be unnecessary
+			{
+				// Add as one-frame input
+				//  -> This is done so that very short key pressed get registered for one frame even if there is no "updateInput" call between key down and key up
+				mOneFrameKeyboardInputs.insert(ev.key.key);
+				mHasKeyboard = true;
+			}
+		#else
 			if (ev.key.state == SDL_PRESSED)	// This check may be unnecessary
 			{
 				// Add as one-frame input
@@ -475,6 +487,7 @@ void InputManager::injectSDLInputEvent(const SDL_Event& ev)
 				mOneFrameKeyboardInputs.insert(ev.key.keysym.sym);
 				mHasKeyboard = true;
 			}
+		#endif
 			break;
 		}
 	}
@@ -920,7 +933,7 @@ void InputManager::setControllerRumbleForPlayer(int playerIndex, float lowFreque
 {
 	if (playerIndex >= 0 && playerIndex < NUM_PLAYERS)
 	{
-		const uint32 endTicks = SDL_GetTicks() + milliseconds;
+		const uint64 endTicks = (uint64)SDL_GetTicks() + milliseconds;
 		if (mPlayers[playerIndex].mRumbleEffectQueue.addEffect(lowFrequencyRumble, highFrequencyRumble, endTicks))
 		{
 			reapplyControllerRumble(playerIndex);
@@ -1007,7 +1020,7 @@ bool InputManager::isPressed(const ControlInput& input)
 				// Ignore key presses while Alt is down
 				if (!FTX::keyState(SDLK_LALT) && !FTX::keyState(SDLK_RALT))
 				{
-					if (!ImGuiIntegration::isCapturingKeyboard())
+					if (!ImGuiIntegration::instance().isCapturingKeyboard())
 						return true;
 				}
 			}
@@ -1046,7 +1059,11 @@ bool InputManager::isPressed(SDL_Joystick* joystick, const ControlInput& input)
 
 			case InputConfig::Assignment::Type::BUTTON:
 			{
+			#ifdef RMX_USE_SDL3
+				return SDL_GetJoystickButton(joystick, input.mIndex);
+			#else
 				return (SDL_JoystickGetButton(joystick, input.mIndex) > 0);
+			#endif
 			}
 
 			case InputConfig::Assignment::Type::POV:

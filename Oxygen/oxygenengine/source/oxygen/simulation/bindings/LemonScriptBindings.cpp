@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -8,6 +8,7 @@
 
 #include "oxygen/pch.h"
 #include "oxygen/simulation/bindings/LemonScriptBindings.h"
+#include "oxygen/simulation/bindings/AudioBindings.h"
 #include "oxygen/simulation/bindings/RendererBindings.h"
 #include "oxygen/simulation/CodeExec.h"
 #include "oxygen/simulation/EmulatorInterface.h"
@@ -18,15 +19,17 @@
 #include "oxygen/simulation/SimulationState.h"
 #include "oxygen/simulation/analyse/ROMDataAnalyser.h"
 #include "oxygen/application/Application.h"
-#include "oxygen/application/EngineMain.h"
-#include "oxygen/application/audio/AudioOutBase.h"
 #include "oxygen/application/input/ControlsIn.h"
 #include "oxygen/application/input/InputManager.h"
-#include "oxygen/application/modding/ModManager.h"
 #include "oxygen/application/overlays/DebugSidePanel.h"
 #include "oxygen/application/video/VideoOut.h"
-#include "oxygen/devmode/ImGuiIntegration.h"
+#include "oxygen/engine/EngineMain.h"
+#include "oxygen/engine/modding/ModManager.h"
+#include "oxygen/extensions/jsonreader/JsonReader.h"
+#include "oxygen/extensions/test/TestExtension.h"
 #include "oxygen/helper/RandomNumberGenerator.h"
+#include "oxygen/menu/imgui/ImGuiIntegration.h"
+#include "oxygen/network/crowdcontrol/CrowdControlClient.h"
 #include "oxygen/rendering/parts/RenderParts.h"
 #include "oxygen/resources/PaletteCollection.h"
 #include "oxygen/resources/RawDataCollection.h"
@@ -219,6 +222,50 @@ namespace
 		const uint32 result = emulatorInterface.readMemory32(A7);
 		A7 += 4;
 		return result;
+	}
+
+	void pre_call1()
+	{
+		push(0);
+	}
+
+	void pre_call2(uint32 returnAddress)
+	{
+		push(returnAddress);
+	}
+
+	void asm_return()
+	{
+		pop();
+	}
+
+
+	uint32 createStackFrame(uint32 value, int16 offset)
+	{
+		uint32& A7 = getEmulatorInterface().getRegister(15);
+		push(value);						// Store original register value
+		const uint32 stackPointer = A7;		// Current stack pointer will be preserved by assigning the returned value
+		A7 += offset;						// Make some space on the stack
+		return stackPointer;
+	}
+
+	uint32 resolveStackFrame(uint32 value)
+	{
+		uint32& A7 = getEmulatorInterface().getRegister(15);
+		A7 = value;
+		return pop();
+	}
+
+	void createStackFrame_A6(int16 offset)
+	{
+		uint32& A6 = getEmulatorInterface().getRegister(14);
+		A6 = createStackFrame(A6, offset);
+	}
+
+	void resolveStackFrame_A6()
+	{
+		uint32& A6 = getEmulatorInterface().getRegister(14);
+		A6 = resolveStackFrame(A6);
 	}
 
 
@@ -621,7 +668,7 @@ namespace
 		lemon::AnyTypeWrapper wrapper;
 		wrapper.readFromStack(controlFlow);
 
-		if (decimal && wrapper.mType->getClass() == lemon::DataTypeDefinition::Class::INTEGER)
+		if (decimal && wrapper.mType->isA<lemon::IntegerDataType>())
 		{
 			const std::string valueString = *String(0, "%d", wrapper.mValue.get<int64>());
 			debugLogInternal(valueString);
@@ -763,133 +810,11 @@ namespace
 	}
 
 
-	uint8 Audio_getAudioKeyType(uint64 sfxId)
-	{
-		return (uint8)EngineMain::instance().getAudioOut().getAudioKeyType(sfxId);
-	}
-
-	bool Audio_isPlayingAudio(uint64 sfxId)
-	{
-		return EngineMain::instance().getAudioOut().isPlayingSfxId(sfxId);
-	}
-
-	void Audio_playAudio1(uint64 sfxId, uint8 contextId)
-	{
-		const bool success = EngineMain::instance().getAudioOut().playAudioBase(sfxId, contextId);
-		if (!success)
-		{
-			// Audio collections expect lowercase IDs, so we might need to do the conversion here first
-			lemon::Runtime* runtime = lemon::Runtime::getActiveRuntime();
-			if (nullptr != runtime)
-			{
-				const lemon::FlyweightString* str = runtime->resolveStringByKey(sfxId);
-				if (nullptr != str)
-				{
-					const std::string_view textString = str->getString();
-
-					// Does the string contain any uppercase letters?
-					if (containsByPredicate(textString, [](char ch) { return (ch >= 'A' && ch <= 'Z'); } ))
-					{
-						// Convert to lowercase and try again
-						String tempStr = textString;
-						tempStr.lowerCase();
-						sfxId = rmx::getMurmur2_64(tempStr);
-						EngineMain::instance().getAudioOut().playAudioBase(sfxId, contextId);
-					}
-				}
-			}
-		}
-	}
-
-	void Audio_playAudio2(uint64 sfxId)
-	{
-		Audio_playAudio1(sfxId, 0x01);	// In-game sound effect context
-	}
-
-	void Audio_pauseChannel(uint8 channel)
-	{
-		EngineMain::instance().getAudioOut().getAudioPlayer().pauseAllSoundsByChannel(channel);
-	}
-
-	void Audio_resumeChannel(uint8 channel)
-	{
-		EngineMain::instance().getAudioOut().getAudioPlayer().resumeAllSoundsByChannel(channel);
-	}
-
-	void Audio_stopChannel(uint8 channel)
-	{
-		EngineMain::instance().getAudioOut().getAudioPlayer().stopAllSoundsByChannel(channel);
-	}
-
-	void Audio_pauseContext(uint8 contextId)
-	{
-		EngineMain::instance().getAudioOut().getAudioPlayer().pauseAllSoundsByContext(contextId);
-	}
-
-	void Audio_resumeContext(uint8 contextId)
-	{
-		EngineMain::instance().getAudioOut().getAudioPlayer().resumeAllSoundsByContext(contextId);
-	}
-
-	void Audio_stopContext(uint8 contextId)
-	{
-		EngineMain::instance().getAudioOut().getAudioPlayer().stopAllSoundsByContext(contextId);
-	}
-
-	void Audio_fadeInChannel(uint8 channel, float seconds)
-	{
-		EngineMain::instance().getAudioOut().fadeInChannel(channel, seconds);
-	}
-
-	void Audio_fadeInChannel2(uint8 channel, uint16 length)
-	{
-		EngineMain::instance().getAudioOut().fadeInChannel(channel, (float)length / 256.0f);
-	}
-
-	void Audio_fadeOutChannel(uint8 channel, float seconds)
-	{
-		EngineMain::instance().getAudioOut().fadeOutChannel(channel, seconds);
-	}
-
-	void Audio_fadeOutChannel2(uint8 channel, uint16 length)
-	{
-		EngineMain::instance().getAudioOut().fadeOutChannel(channel, (float)length / 256.0f);
-	}
-
-	void Audio_playOverride(uint64 sfxId, uint8 contextId, uint8 channelId, uint8 overriddenChannelId)
-	{
-		EngineMain::instance().getAudioOut().playOverride(sfxId, contextId, channelId, overriddenChannelId);
-	}
-
-	void Audio_enableAudioModifier(uint8 channel, uint8 contextId, lemon::StringRef postfix, float relativeSpeed)
-	{
-		if (postfix.isValid())
-		{
-			EngineMain::instance().getAudioOut().enableAudioModifier(channel, contextId, postfix.getString(), relativeSpeed);
-		}
-	}
-
-	void Audio_enableAudioModifier2(uint8 channel, uint8 contextId, lemon::StringRef postfix, uint32 relativeSpeed)
-	{
-		if (postfix.isValid())
-		{
-			EngineMain::instance().getAudioOut().enableAudioModifier(channel, contextId, postfix.getString(), (float)relativeSpeed / 65536.0f);
-		}
-	}
-
-	void Audio_disableAudioModifier(uint8 channel, uint8 contextId)
-	{
-		EngineMain::instance().getAudioOut().disableAudioModifier(channel, contextId);
-	}
-
-
 	const Mod* getActiveModByNameHash(lemon::StringRef modName)
 	{
 		if (modName.isValid())
 		{
-			Mod*const* modPtr = mapFind(ModManager::instance().getActiveModsByNameHash(), modName.getHash());
-			if (nullptr != modPtr)
-				return *modPtr;
+			return mapFindOrDefault(ModManager::instance().getActiveModsByNameHash(), modName.getHash(), nullptr);
 		}
 		return nullptr;
 	}
@@ -912,7 +837,7 @@ namespace
 		if (EngineMain::getDelegate().useDeveloperFeatures())
 		{
 			const int key = index + '0';
-			const bool result = (FTX::keyState(key) && FTX::keyChange(key) && !FTX::keyState(SDLK_LALT) && !FTX::keyState(SDLK_RALT) && !ImGuiIntegration::isCapturingKeyboard());
+			const bool result = (FTX::keyState(key) && !FTX::keyState(SDLK_LALT) && !FTX::keyState(SDLK_RALT) && !ImGuiIntegration::instance().isCapturingKeyboard());
 			controlFlow.pushValueStack<uint8>(result ? 1 : 0);
 		}
 		else
@@ -948,7 +873,7 @@ namespace
 				std::wstring outputFilename = String(filename.getString()).toStdWString();
 				const bool containsAnySlash = (outputFilename.find('/') != std::wstring::npos || outputFilename.find('\\') != std::wstring::npos);
 				RMX_CHECK(!containsAnySlash, "The file name passed to debugDumpToFile was '" << filename.getString() << "', which contains a file path. This is not allowed, please use a file name only!", return);
-				RMX_CHECK(rmx::FileIO::isValidFileName(outputFilename), "The file name passed to debugDumpToFile was '" << filename.getString() << "', which contains illegal characters for file names (like \" < > : | ? * )", return);
+				RMX_CHECK(rmx::FileIO::isValidPathName(outputFilename), "The file name passed to debugDumpToFile was '" << filename.getString() << "', which contains illegal characters for file names (like \" < > : | ? * )", return);
 
 				outputFilename = Configuration::instance().mAppDataPath + L"output/" + outputFilename;
 
@@ -1103,8 +1028,10 @@ void LemonScriptBindings::registerBindings(lemon::Module& module)
 {
 	lemon::ModuleBindingsBuilder builder(module);
 
-	// Basic functions
 	const BitFlagSet<lemon::Function::Flag> defaultFlags(lemon::Function::Flag::ALLOW_INLINE_EXECUTION);
+	const BitFlagSet<lemon::Function::Flag> excludedFlags(lemon::Function::Flag::EXCLUDE_FROM_DEFINITIONS);
+
+	// Basic functions
 	builder.addNativeFunction("assert", lemon::wrap(&scriptAssert1), defaultFlags);
 	builder.addNativeFunction("assert", lemon::wrap(&scriptAssert2), defaultFlags);
 
@@ -1123,9 +1050,11 @@ void LemonScriptBindings::registerBindings(lemon::Module& module)
 			module.addExternalVariable(registerNamesDAR[i] + ".s32", &lemon::PredefinedDataTypes::INT_32,  std::bind(accessRegister, i));
 		}
 
+
 		// Query flags
 		builder.addNativeFunction("_equal", lemon::wrap(&checkFlags_equal), defaultFlags);
 		builder.addNativeFunction("_negative", lemon::wrap(&checkFlags_negative), defaultFlags);
+
 
 		// Explictly set flags
 		builder.addNativeFunction("_setZeroFlagByValue", lemon::wrap(&setZeroFlagByValue), defaultFlags)
@@ -1158,9 +1087,28 @@ void LemonScriptBindings::registerBindings(lemon::Module& module)
 			.setParameters("startAddress", "bytes", "value");
 
 
-		// Push and pop
+		// Stack handling
 		builder.addNativeFunction("push", lemon::wrap(&push), defaultFlags);
+
 		builder.addNativeFunction("pop", lemon::wrap(&pop), defaultFlags);
+
+		builder.addNativeFunction("pre_call", lemon::wrap(&pre_call1), excludedFlags);							// Excluded by default because it's only relevant for certain projects
+
+		builder.addNativeFunction("pre_call", lemon::wrap(&pre_call2), excludedFlags)							// Excluded by default because it's only relevant for certain projects
+			.setParameters("returnAddress");
+
+		builder.addNativeFunction("asm_return", lemon::wrap(&asm_return), excludedFlags);						// Excluded by default because it's only relevant for certain projects
+
+		builder.addNativeFunction("createStackFrame", lemon::wrap(&createStackFrame), excludedFlags)			// Excluded by default because it's only relevant for certain projects
+			.setParameters("value", "offset");
+
+		builder.addNativeFunction("createStackFrame_A6", lemon::wrap(&createStackFrame_A6), excludedFlags)		// Excluded by default because it's only relevant for certain projects
+			.setParameters("offset");
+
+		builder.addNativeFunction("resolveStackFrame", lemon::wrap(&resolveStackFrame), excludedFlags)			// Excluded by default because it's only relevant for certain projects
+			.setParameters("value");
+
+		builder.addNativeFunction("resolveStackFrame_A6", lemon::wrap(&resolveStackFrame_A6), excludedFlags);	// Excluded by default because it's only relevant for certain projects
 
 
 		// Persistent data
@@ -1301,64 +1249,11 @@ void LemonScriptBindings::registerBindings(lemon::Module& module)
 	// Renderer bindings
 	RendererBindings::registerBindings(module);
 
+	// Audio
+	AudioBindings::registerBindings(module);
+
+	// Modding
 	{
-		// Audio
-		builder.addNativeFunction("Audio.getAudioKeyType", lemon::wrap(&Audio_getAudioKeyType), defaultFlags)
-			.setParameters("sfxId");
-
-		builder.addNativeFunction("Audio.isPlayingAudio", lemon::wrap(&Audio_isPlayingAudio), defaultFlags)
-			.setParameters("sfxId");
-
-		builder.addNativeFunction("Audio.playAudio", lemon::wrap(&Audio_playAudio1), defaultFlags)
-			.setParameters("sfxId", "contextId");
-
-		builder.addNativeFunction("Audio.playAudio", lemon::wrap(&Audio_playAudio2), defaultFlags)
-			.setParameters("sfxId");
-
-		builder.addNativeFunction("Audio.pauseChannel", lemon::wrap(&Audio_pauseChannel), defaultFlags)
-			.setParameters("channel");
-
-		builder.addNativeFunction("Audio.resumeChannel", lemon::wrap(&Audio_resumeChannel), defaultFlags)
-			.setParameters("channel");
-
-		builder.addNativeFunction("Audio.stopChannel", lemon::wrap(&Audio_stopChannel), defaultFlags)
-			.setParameters("channel");
-
-		builder.addNativeFunction("Audio.pauseContext", lemon::wrap(&Audio_pauseContext), defaultFlags)
-			.setParameters("contextId");
-
-		builder.addNativeFunction("Audio.resumeContext", lemon::wrap(&Audio_resumeContext), defaultFlags)
-			.setParameters("contextId");
-
-		builder.addNativeFunction("Audio.stopContext", lemon::wrap(&Audio_stopContext), defaultFlags)
-			.setParameters("contextId");
-
-		builder.addNativeFunction("Audio.fadeInChannel", lemon::wrap(&Audio_fadeInChannel), defaultFlags)
-			.setParameters("channel", "seconds");
-
-		builder.addNativeFunction("Audio.fadeInChannel", lemon::wrap(&Audio_fadeInChannel2), defaultFlags)
-			.setParameters("channel", "length");
-
-		builder.addNativeFunction("Audio.fadeOutChannel", lemon::wrap(&Audio_fadeOutChannel), defaultFlags)
-			.setParameters("channel", "seconds");
-
-		builder.addNativeFunction("Audio.fadeOutChannel", lemon::wrap(&Audio_fadeOutChannel2), defaultFlags)
-			.setParameters("channel", "length");
-
-		builder.addNativeFunction("Audio.playOverride", lemon::wrap(&Audio_playOverride), defaultFlags)
-			.setParameters("sfxId", "contextId", "channelId", "overriddenChannelId");
-
-		builder.addNativeFunction("Audio.enableAudioModifier", lemon::wrap(&Audio_enableAudioModifier), defaultFlags)
-			.setParameters("channel", "contextId", "postfix", "relativeSpeed");
-
-		builder.addNativeFunction("Audio.enableAudioModifier", lemon::wrap(&Audio_enableAudioModifier2), defaultFlags)
-			.setParameters("channel", "contextId", "postfix", "relativeSpeed");
-
-		builder.addNativeFunction("Audio.disableAudioModifier", lemon::wrap(&Audio_disableAudioModifier), defaultFlags)
-			.setParameters("channel", "context");
-
-
-		// Misc
 		builder.addNativeFunction("Mods.isModActive", lemon::wrap(&Mods_isModActive), defaultFlags)
 			.setParameters("modName");
 
@@ -1452,6 +1347,15 @@ void LemonScriptBindings::registerBindings(lemon::Module& module)
 		builder.addNativeFunction("System.writeDisplayLine", lemon::wrap(&System_writeDisplayLine), defaultFlags)
 			.setParameters("text");
 	}
+
+	// CrowdControl
+	CrowdControlClient::instance().registerScriptBindings(builder);
+
+	// JsonReader
+	JsonReader::registerScriptBindings(builder);
+
+	// TestExtension
+	TestExtension::instance().registerScriptBindings(builder);
 
 	// Register game-specific script bindings
 	EngineMain::getDelegate().registerScriptBindings(module);

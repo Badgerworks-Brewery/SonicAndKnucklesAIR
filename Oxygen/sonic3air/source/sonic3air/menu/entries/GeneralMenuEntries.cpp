@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -9,6 +9,8 @@
 #include "sonic3air/pch.h"
 #include "sonic3air/menu/entries/GeneralMenuEntries.h"
 #include "sonic3air/menu/SharedResources.h"
+
+#include "oxygen/application/Application.h"
 
 
 InputFieldMenuEntry::InputFieldMenuEntry()
@@ -36,6 +38,9 @@ void InputFieldMenuEntry::textinput(const rmx::TextInputEvent& ev)
 
 void InputFieldMenuEntry::renderEntry(RenderContext& renderContext)
 {
+	// Require active text input
+	Application::instance().requestActiveTextInput();
+
 	const Recti outerRect(renderContext.mCurrentPosition - Vec2i(3, 0), mSize);
 	const Recti textRect(outerRect.getPos() + Vec2i(5, 1), outerRect.getSize() - Vec2i(10, 2));
 

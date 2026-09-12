@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -15,8 +15,6 @@ class Font;
 
 namespace utils
 {
-	bool startsWith(const std::wstring& fullString, const std::wstring& prefix);
-
 	void splitTextIntoLines(std::vector<std::string>& outLines, const std::string& text, Font& font, int maxLineWidth);
 	void splitTextIntoLines(std::vector<std::string_view>& outLines, std::string_view text, Font& font, int maxLineWidth);
 	void shortenTextToFit(std::string& text, Font& font, int maxLineWidth);
@@ -66,13 +64,13 @@ public:
 		mTable.resize(TABLESIZE >> SHIFT, nullptr);
 	}
 
-	inline size_t size() const  { return mNumEntries; }
+	inline size_t size() const  { return mAllEntries.size(); }
 
 	inline void clear()
 	{
+		mAllEntries.clear();
 		mEntriesPool.clear();
 		memset(&mTable[0], 0, mTable.size() * sizeof(Entry*));
-		mNumEntries = 0;
 	}
 
 	inline VALUE* add(uint32 key)
@@ -85,8 +83,8 @@ public:
 		newEntry.mKey = key;
 		newEntry.mNext = mTable[index];
 
+		mAllEntries.push_back(&newEntry);
 		mTable[index] = &newEntry;
-		++mNumEntries;
 		return &newEntry.mValue;
 	}
 
@@ -115,6 +113,15 @@ public:
 		return nullptr;
 	}
 
+	template<class PRED>
+	void forEach(PRED predicate)
+	{
+		for (Entry* entry : mAllEntries)
+		{
+			predicate(entry->mValue);
+		}
+	}
+
 private:
 	inline uint32 getIndex(uint32 key) const
 	{
@@ -129,6 +136,6 @@ private:
 		Entry* mNext = nullptr;
 	};
 	ObjectPool<Entry, RMX_PAGESIZE> mEntriesPool;
+	std::vector<Entry*> mAllEntries;
 	std::vector<Entry*> mTable;
-	size_t mNumEntries = 0;
 };

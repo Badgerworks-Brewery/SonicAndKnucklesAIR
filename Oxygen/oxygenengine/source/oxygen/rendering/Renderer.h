@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -46,7 +46,7 @@ private:
 	uint8 mRendererType = 0;
 
 	// Limit for render time
-	uint32 mRenderingStartTicks = 0;
+	SDL_TicksType mRenderingStartTicks = 0;
 	uint32 mRenderingRunningCount = 0;
 	bool mLoggedLimitWarning = false;
 };

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -82,8 +82,8 @@ namespace emulatorinterface
 			}
 			else if (address >= 0xa00000 && address < 0xd00000)
 			{
-				//if ((address & 0xfffff0) == 0xc00000)
-				//	_asm nop;
+				if (MODE == MEMORY_MODE_WRITE_DEV && (address & 0xfffff0) == 0xc00000)
+					RMX_ERROR("Unhandled VDP memory " << (MODE == MEMORY_MODE_READ ? "read" : "write") << " to address " << rmx::hexString(address, 6), );
 				static uint64 dummy;
 				dummy = 0;
 				return (uint8*)&dummy;
@@ -121,7 +121,8 @@ void RuntimeMemory::clear()
 	// Reset ROM to unmodified version
 	{
 		const std::vector<uint8>& unmodifiedROM = ResourcesCache::instance().getUnmodifiedRom();
-		memcpy(mRom, &unmodifiedROM[0], unmodifiedROM.size());
+		if (!unmodifiedROM.empty())
+			memcpy(mRom, &unmodifiedROM[0], unmodifiedROM.size());
 		if (sizeof(mRom) > unmodifiedROM.size())
 			memset(&mRom[unmodifiedROM.size()], 0, sizeof(mRom) - unmodifiedROM.size());
 	}

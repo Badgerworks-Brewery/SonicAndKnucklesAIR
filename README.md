@@ -27,6 +27,49 @@ This repository is split into several different projects:
 * S3AIR-specific C++ code, scripts and data in the "Oxygen/sonic3air" directory. Yes, that's what it's named.
 
 
+## Sonic & Knuckles Collection (PC, 1997) support
+
+Besides the original Genesis/Mega Drive ROM, the game can also be run from
+`SONIC3K.EXE`, the executable of the official 1997 Windows PC port
+("Sonic & Knuckles Collection"). On first launch, when prompted for a ROM,
+point the file selection dialog at your own legitimately-owned `SONIC3K.EXE`
+instead of a `.bin` ROM file.
+
+Technical background: that executable embeds the same Genesis-address-mapped
+game data used by the Mega Drive ROM, copied verbatim at matching file byte
+offsets (i.e. Genesis address `X` sits at file offset `X`, verified against a
+retail copy). This is configured via the `S3K_OldPC` entry in
+`Oxygen/sonic3air/oxygenproject.json` (`RomType: "PC"`, `PCDataOffset`,
+`PCDataSize`).
+
+**Current status: partial, not yet fully playable.** The executable never
+executes 68k code itself -- the PC port replaced the original boot code and
+several small pointer/lookup tables that were interleaved with it with native
+x86 code, so those specific address ranges can't be read from the PC
+executable at all (confirmed by inspection: real x86 opcodes sit where 68k
+data should be). Booting straight from `SONIC3K.EXE` alone crashes almost
+immediately (`Kosinski.decompress` reads a garbage pointer during the title
+screen boot sequence).
+
+An optional patch-overlay mechanism addresses this for anyone who also owns
+a legitimate Genesis ROM: set `PatchSourceRomName` and `PatchRanges` on a
+`RomInfo` entry, and those byte ranges are copied from that ROM on top of the
+extracted PC data after loading (see `ResourcesCache::applyPCPatchRanges`).
+Verified with a byte-perfect `Sonic_Knuckles_wSonic3.bin` supplied by a user:
+patching `0x000000`-`0x1ffff0` (the low range replaced by native code) gets
+past the original crash, through the main menu, and into the data select
+screen -- further than the PC executable manages alone. A second, still
+unidentified mismatch remains above that range (`VDP_copyToVRAM` overflow
+loading a save-slot preview sprite), so no zone has been reached yet this
+way. Neither the patch source ROM nor any extracted game data is bundled
+with this repository -- users must supply their own legitimately-owned
+files for both the PC executable and, optionally, the patch source ROM.
+
+Limitations: audio in the retail PC executable uses General MIDI/PCM rather
+than the Genesis FM synth; S3AIR's own remastered soundtrack is used instead
+regardless of ROM source, so this doesn't currently affect playback.
+
+
 ## How to build
 
 For information on how to build for different platforms, find the readme files in the respective subdirectories of "Oxygen/sonic3air/build":
@@ -69,9 +112,11 @@ Source code contributions by:
 * gl33ntwine
 * Rinnegatamante
 * MDashK
+* CodenameGamma
+* LelJader
 
 Remastered soundtrack by:
-* G Spindash
+* SpinnRG
 
 Game scripts & other contributions by:
 * Vinegar
@@ -79,14 +124,18 @@ Game scripts & other contributions by:
 * Legobouwer
 * GFX32
 * Dynamic Lemons
-* HazelSpooder
+* AmberChromatic
 * iCloudius
 * D.A. Garden
 * Alieneer
 * 3Pills
 * Elsie The Pict
-* TheMushrunt
+* nabbup
 * mrgrassman14
+* Vague Rant
+* PaperTriangle
+* Crappy Productions
+* AtomicRey
 
 Additional thanks:
 * All contributors of the Sonic 3 / Sonic & Knuckles Disassembly (https://github.com/sonicretro/skdisasm), which has proven itself a valuable source of information on S3&K code

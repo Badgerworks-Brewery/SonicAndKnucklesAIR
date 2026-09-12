@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -198,7 +198,6 @@ public:
 
 	void setTransformation(const Vec3<TYPE>& dir0, const Vec3<TYPE>& dir1, const Vec3<TYPE>& dir2)
 	{
-		setIdentity();
 		for (int i = 0; i < 3; ++i)
 		{
 			data[i*3+0] = dir0.data[i];
@@ -209,7 +208,6 @@ public:
 
 	void setTransformationInv(const Vec3<TYPE>& dir0, const Vec3<TYPE>& dir1, const Vec3<TYPE>& dir2)
 	{
-		setIdentity();
 		for (int i = 0; i < 3; ++i)
 		{
 			data[i]     = dir0.data[i];

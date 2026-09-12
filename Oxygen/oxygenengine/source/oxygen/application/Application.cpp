@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -9,7 +9,6 @@
 #include "oxygen/pch.h"
 #include "oxygen/application/Application.h"
 #include "oxygen/application/Configuration.h"
-#include "oxygen/application/EngineMain.h"
 #include "oxygen/application/GameLoader.h"
 #include "oxygen/application/audio/AudioOutBase.h"
 #include "oxygen/application/audio/AudioPlayer.h"
@@ -27,21 +26,29 @@
 #include "oxygen/application/overlays/SaveStateMenu.h"
 #include "oxygen/application/overlays/TouchControlsOverlay.h"
 #include "oxygen/application/video/VideoOut.h"
-#include "oxygen/devmode/ImGuiIntegration.h"
+#include "oxygen/engine/EngineMain.h"
+#include "oxygen/engine/modding/ModManager.h"
+#include "oxygen/menu/imgui/ImGuiIntegration.h"
 #include "oxygen/helper/Logging.h"
 #include "oxygen/helper/Profiling.h"
 #include "oxygen/network/EngineServerClient.h"
+#include "oxygen/network/crowdcontrol/CrowdControlClient.h"
+#include "oxygen/platform/CommandForwarder.h"
 #include "oxygen/platform/PlatformFunctions.h"
 #include "oxygen/simulation/GameRecorder.h"
 #include "oxygen/simulation/LogDisplay.h"
 #include "oxygen/simulation/PersistentData.h"
 #include "oxygen/simulation/Simulation.h"
+#if defined(SUPPORT_IMGUI)
+	#include "oxygen/menu/devmode/DevModeMainWindow.h"
+#endif
 
 
 static const float MOUSE_HIDE_TIME = 1.0f;	// Seconds until mouse cursor gets hidden after last movement
 
 
 Application::Application() :
+	GuiBase("Application"),
 	mGameLoader(new GameLoader()),
 	mSimulation(new Simulation()),
 	mSaveStateMenu(new SaveStateMenu())
@@ -65,6 +72,11 @@ Application::Application() :
 
 Application::~Application()
 {
+#if defined(SUPPORT_IMGUI)
+	// This will also shutdown ImGui itself
+	ImGuiManager::instance().clearProviders();
+#endif
+
 	EngineServerClient::instance().shutdownClient();
 
 	delete mGameLoader;
@@ -94,11 +106,16 @@ void Application::initialize()
 		mDebugSidePanel = &createChild<DebugSidePanel>();
 		createChild<MemoryHexView>();
 		createChild<DebugLogView>();
+
+	#if defined(SUPPORT_IMGUI)
+		ImGuiManager::instance().getOrAddImGuiContentProvider<DevModeMainWindow>(0);
+	#endif
 	}
 
-	//mOxygenMenu = &mGameView->createChild<OxygenMenu>();
 	mProfilingView = &createChild<ProfilingView>();
 	mCheatSheetOverlay = &createChild<CheatSheetOverlay>();
+
+	mOxygenMenu = &createChild<OxygenMenu>();
 
 	if (nullptr != mTouchControlsOverlay && nullptr == mTouchControlsOverlay->getParent())
 	{
@@ -135,13 +152,58 @@ void Application::deinitialize()
 	updateWindowDisplayIndex();
 }
 
+void Application::beginFrame()
+{
+	// Change render method if requested
+	if (mPendingRenderMethod.has_value())
+	{
+		EngineMain::instance().switchToRenderMethod(*mPendingRenderMethod);
+		mPendingRenderMethod.reset();
+	}
+
+	// Handle text input
+	{
+		// Start or stop text input from SDL
+		//  -> The start call is required to even get any "textinput" callbacks
+		//  -> On devices that support it (like Android), active text input will also bring up the virtual keyboard
+	#ifdef RMX_USE_SDL3
+		SDL_Window* window = &EngineMain::instance().getSDLWindow();
+		if (mRequestActiveTextInput != SDL_TextInputActive(window))
+		{
+			if (mRequestActiveTextInput)
+				SDL_StartTextInput(window);
+			else
+				SDL_StopTextInput(window);
+		}
+	#else
+		if (mRequestActiveTextInput != (bool)SDL_IsTextInputActive())
+		{
+			if (mRequestActiveTextInput)
+				SDL_StartTextInput();
+			else
+				SDL_StopTextInput();
+		}
+	#endif
+
+		// Reset for next frame, so text input gets deactivated if nobody requests it again
+		mRequestActiveTextInput = false;
+	}
+
+	GuiBase::beginFrame();
+}
+
+void Application::endFrame()
+{
+	GuiBase::endFrame();
+}
+
 void Application::sdlEvent(const SDL_Event& ev)
 {
 	GuiBase::sdlEvent(ev);
 
 	//RMX_LOG_INFO("SDL event: type = " << ev.type);
 
-	ImGuiIntegration::processSdlEvent(ev);
+	mImGuiIntegration.processSdlEvent(ev);
 
 	// Inform input manager as well
 	if (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP)		// TODO: Also add joystick events?
@@ -152,6 +214,16 @@ void Application::sdlEvent(const SDL_Event& ev)
 	// Handle events that FTX doesn't
 	switch (ev.type)
 	{
+	#ifdef RMX_USE_SDL3
+		case SDL_EVENT_WINDOW_FOCUS_LOST:
+		{
+			if (ev.window.windowID == SDL_GetWindowID(&EngineMain::instance().getSDLWindow()))
+			{
+				EngineMain::getDelegate().onApplicationLostFocus();
+			}
+			break;
+		}
+	#else
 		case SDL_WINDOWEVENT:
 		{
 			if (ev.window.windowID == SDL_GetWindowID(&EngineMain::instance().getSDLWindow()))
@@ -167,6 +239,7 @@ void Application::sdlEvent(const SDL_Event& ev)
 			}
 			break;
 		}
+	#endif
 
 		case SDL_APP_WILLENTERBACKGROUND:
 		{
@@ -210,7 +283,7 @@ void Application::keyboard(const rmx::KeyboardEvent& ev)
 		return;
 	}
 
-	if (ImGuiIntegration::isCapturingKeyboard())
+	if (mImGuiIntegration.isCapturingKeyboard())
 	{
 		FTX::System->consumeCurrentEvent();
 	}
@@ -257,9 +330,9 @@ void Application::keyboard(const rmx::KeyboardEvent& ev)
 							updateWindowDisplayIndex();
 							const Configuration::RenderMethod newRenderMethod = (Configuration::instance().mRenderMethod == Configuration::RenderMethod::SOFTWARE) ? Configuration::RenderMethod::OPENGL_SOFT :
 																				(Configuration::instance().mRenderMethod == Configuration::RenderMethod::OPENGL_SOFT) ? Configuration::RenderMethod::OPENGL_FULL : Configuration::RenderMethod::SOFTWARE;
-							EngineMain::instance().switchToRenderMethod(newRenderMethod);
-							LogDisplay::instance().setLogDisplay((Configuration::instance().mRenderMethod == Configuration::RenderMethod::SOFTWARE) ? "Switched to pure software renderer" :
-																 (Configuration::instance().mRenderMethod == Configuration::RenderMethod::OPENGL_SOFT) ? "Switched to opengl-soft renderer" : "Switched to opengl-full renderer");
+							setPendingRenderMethod(newRenderMethod);
+							LogDisplay::instance().setLogDisplay((newRenderMethod == Configuration::RenderMethod::SOFTWARE) ? "Switched to pure software renderer" :
+																 (newRenderMethod == Configuration::RenderMethod::OPENGL_SOFT) ? "Switched to opengl-soft renderer" : "Switched to opengl-full renderer");
 						}
 						break;
 					}
@@ -293,7 +366,11 @@ void Application::keyboard(const rmx::KeyboardEvent& ev)
 					#ifdef SUPPORT_IMGUI
 						else if (EngineMain::getDelegate().useDeveloperFeatures())
 						{
-							ImGuiIntegration::toggleMainWindow();
+							DevModeMainWindow* devModeMainWindow = ImGuiManager::instance().getImGuiContentProvider<DevModeMainWindow>();
+							if (nullptr != devModeMainWindow)
+							{
+								devModeMainWindow->setIsWindowOpen(!devModeMainWindow->getIsWindowOpen());
+							}
 						}
 					#endif
 						else
@@ -376,8 +453,8 @@ void Application::keyboard(const rmx::KeyboardEvent& ev)
 						if (Configuration::instance().mRenderMethod != Configuration::RenderMethod::SOFTWARE)
 						{
 							const Configuration::RenderMethod newRenderMethod = (Configuration::instance().mRenderMethod == Configuration::RenderMethod::OPENGL_SOFT) ? Configuration::RenderMethod::OPENGL_FULL : Configuration::RenderMethod::OPENGL_SOFT;
-							EngineMain::instance().switchToRenderMethod(newRenderMethod);
-							LogDisplay::instance().setLogDisplay((Configuration::instance().mRenderMethod == Configuration::RenderMethod::OPENGL_SOFT) ? "Switched to opengl-soft renderer" : "Switched to opengl-full renderer");
+							setPendingRenderMethod(newRenderMethod);
+							LogDisplay::instance().setLogDisplay((newRenderMethod == Configuration::RenderMethod::OPENGL_SOFT) ? "Switched to opengl-soft renderer" : "Switched to opengl-full renderer");
 						}
 						break;
 					}
@@ -391,9 +468,9 @@ void Application::keyboard(const rmx::KeyboardEvent& ev)
 				case SDLK_KP_PLUS:
 				case SDLK_KP_MINUS:
 				{
-					int volume = roundToInt(Configuration::instance().mAudioVolume * 100.0f);
+					int volume = roundToInt(Configuration::instance().mAudio.mMasterVolume * 100.0f);
 					volume = clamp((ev.key == SDLK_KP_PLUS) ? volume + 5 : volume - 5, 0, 100);
-					Configuration::instance().mAudioVolume = (float)volume / 100.0f;
+					Configuration::instance().mAudio.mMasterVolume = (float)volume / 100.0f;
 					LogDisplay::instance().setLogDisplay(String(0, "Audio volume: %d%%", volume));
 					break;
 				}
@@ -424,7 +501,7 @@ void Application::keyboard(const rmx::KeyboardEvent& ev)
 
 void Application::mouse(const rmx::MouseEvent& ev)
 {
-	if (ImGuiIntegration::isCapturingMouse())
+	if (mImGuiIntegration.isCapturingMouse())
 	{
 		FTX::System->consumeCurrentEvent();
 	}
@@ -439,7 +516,10 @@ void Application::update(float timeElapsed)
 		RMX_LOG_INFO("Start of first application update call");
 	}
 
-	if (ImGuiIntegration::isCapturingMouse() || ImGuiIntegration::isCapturingKeyboard())
+	// ImGui frame start must be done here (instead of at the start of "render"), to ensure that the mouse capturing flag is set correctly
+	//  -> This is particularly relevant for touch input, where we would miss the first touch into an ImGui window and falsely pass it to the touch overlay
+	mImGuiIntegration.startFrame();
+	if (mImGuiIntegration.isCapturingMouse() || mImGuiIntegration.isCapturingKeyboard() || mImGuiIntegration.hasBlockingImGuiWindow())
 	{
 		FTX::System->consumeCurrentEvent();
 	}
@@ -476,6 +556,9 @@ void Application::update(float timeElapsed)
 	// Update engine server client and netplay
 	EngineServerClient::instance().updateClient(timeElapsed);
 
+	// Update command forwarder
+	CommandForwarder::instance().update(timeElapsed);
+
 	// Update drawer
 	EngineMain::instance().getDrawer().updateDrawer(timeElapsed);
 
@@ -497,6 +580,9 @@ void Application::update(float timeElapsed)
 	Profiling::pushRegion(ProfilingRegion::SIMULATION);
 	mSimulation->update(timeElapsed);
 	Profiling::popRegion(ProfilingRegion::SIMULATION);
+
+	// Update systems
+	CrowdControlClient::instance().updateConnection(timeElapsed);
 
 	// Update game
 	EngineMain::getDelegate().updateGame(timeElapsed);
@@ -521,13 +607,19 @@ void Application::update(float timeElapsed)
 	mGameView->earlyUpdate(timeElapsed);
 	GuiBase::update(timeElapsed);
 
+	// Any GUI element blocked input, inject that as an ignore for in-game controls
+	if (FTX::System->wasEventConsumed())
+	{
+		ControlsIn::instance().setAllIgnores();
+	}
+
 	if (nullptr != mRemoveChild)
 	{
 		removeChild(*mRemoveChild);
 		mRemoveChild = nullptr;
 	}
 
-	if (FTX::mouseRel() != Vec2i())
+	if (FTX::mouseRel() != Vec2i() || FTX::mouseState(rmx::MouseButton::Left) || FTX::mouseState(rmx::MouseButton::Right) || mImGuiIntegration.isCapturingMouse())
 	{
 		mMouseHideTimer = 0.0f;
 		SDL_ShowCursor(1);
@@ -557,66 +649,70 @@ void Application::render()
 		RMX_LOG_INFO("Start of first application render call");
 	}
 
-	if (ImGuiIntegration::isCapturingMouse())
+	if (mImGuiIntegration.isCapturingMouse())
 	{
 		FTX::System->consumeCurrentEvent();
 	}
 
-	ImGuiIntegration::startFrame();
-
 	Drawer& drawer = EngineMain::instance().getDrawer();
 	drawer.setupRenderWindow(&EngineMain::instance().getSDLWindow());
 
-	GuiBase::render();
-
-	// TODO: This gets called too late
-	mBackdropView->setGameViewRect(mGameView->getGameViewport());
-
-	// Show log display output
+	if (mImGuiIntegration.hasBlockingImGuiWindow())
 	{
-		LogDisplay& logDisplay = LogDisplay::instance();
+		mPausedByFocusLoss = false;
+	}
+	else
+	{
+		GuiBase::render();
 
-		if (!logDisplay.mModeDisplayString.empty())
-		{
-			const Recti rect(0, 0, FTX::screenWidth(), 26);
-			drawer.drawRect(rect, Color(0.4f, 0.4f, 0.4f, 0.4f));
-			drawer.printText(mLogDisplayFont, Vec2i(5, 5), logDisplay.mModeDisplayString);
-		}
+		// TODO: This gets called too late
+		mBackdropView->setGameViewRect(mGameView->getGameViewportRect());
 
-		if (logDisplay.mLogDisplayTimeout > 0.0f)
+		// Show log display output
 		{
-			drawer.printText(mLogDisplayFont, Vec2i(5, FTX::screenHeight() - 25), logDisplay.mLogDisplayString, 1, Color(1.0f, 1.0f, 1.0f, saturate(logDisplay.mLogDisplayTimeout / 0.25f)));
-		}
+			LogDisplay& logDisplay = LogDisplay::instance();
 
-		if (!logDisplay.mLogErrorStrings.empty())
-		{
-			Vec2i pos(5, FTX::screenHeight() - 30 - (int)logDisplay.mLogErrorStrings.size() * 20);
-			for (const String& error : logDisplay.mLogErrorStrings)
+			if (!logDisplay.mModeDisplayString.empty())
 			{
-				drawer.printText(mLogDisplayFont, pos, error, 1, Color(1.0f, 0.2f, 0.2f));
-				pos.y += 20;
+				const Recti rect(0, 0, FTX::screenWidth(), 26);
+				drawer.drawRect(rect, Color(0.4f, 0.4f, 0.4f, 0.4f));
+				drawer.printText(mLogDisplayFont, Vec2i(5, 5), logDisplay.mModeDisplayString);
+			}
+
+			if (logDisplay.mLogDisplayTimeout > 0.0f)
+			{
+				drawer.printText(mLogDisplayFont, Vec2i(5, FTX::screenHeight() - 25), logDisplay.mLogDisplayString, 1, Color(1.0f, 1.0f, 1.0f, saturate(logDisplay.mLogDisplayTimeout / 0.25f)));
+			}
+
+			if (!logDisplay.mLogErrorStrings.empty())
+			{
+				Vec2i pos(5, FTX::screenHeight() - 30 - (int)logDisplay.mLogErrorStrings.size() * 20);
+				for (const String& error : logDisplay.mLogErrorStrings)
+				{
+					drawer.printText(mLogDisplayFont, pos, error, 1, Color(1.0f, 0.2f, 0.2f));
+					pos.y += 20;
+				}
 			}
 		}
-	}
 
-	if (mPausedByFocusLoss)
-	{
-		drawer.drawRect(FTX::screenRect(), Color(0.0f, 0.0f, 0.0f, 0.8f));
+		if (mPausedByFocusLoss)
+		{
+			drawer.drawRect(FTX::screenRect(), Color(0.0f, 0.0f, 0.0f, 0.8f));
 
-		// TODO: The sprites are from S3AIR, but used in OxygenApp as well
-	#if defined(PLATFORM_ANDROID) || defined(PLATFORM_WEB) || defined(PLATFORM_IOS)
-		constexpr uint64 key = rmx::constMurmur2_64("auto_pause_text_tap");
-	#else
-		constexpr uint64 key = rmx::constMurmur2_64("auto_pause_text_key");
-	#endif
-		const float scale = (float)(FTX::screenHeight() / 160);		// A bit larger than the usual upscaled pixel size
-		drawer.drawSprite(FTX::screenSize() / 2, key, Color(0.3f, 1.0f, 1.0f), Vec2f(scale));
+		#if defined(PLATFORM_ANDROID) || defined(PLATFORM_WEB) || defined(PLATFORM_IOS)
+			constexpr uint64 key = rmx::constMurmur2_64("auto_pause_text_tap");
+		#else
+			constexpr uint64 key = rmx::constMurmur2_64("auto_pause_text_key");
+		#endif
+			const float scale = (float)(FTX::screenHeight() / 160);		// A bit larger than the usual upscaled pixel size
+			drawer.drawSprite(FTX::screenSize() / 2, key, Color(0.3f, 1.0f, 1.0f), Vec2f(scale));
+		}
 	}
 
 	drawer.performRendering();
 
-	ImGuiIntegration::showDebugWindow();
-	ImGuiIntegration::endFrame();
+	mImGuiIntegration.buildContents();
+	mImGuiIntegration.endFrame();
 
 	// Needed only for precise profiling
 	//glFinish();
@@ -702,7 +798,7 @@ void Application::setWindowMode(WindowMode windowMode, bool force)
 
 	SDL_Window* window = FTX::Video->getMainWindow();
 	const int displayIndex = updateWindowDisplayIndex();
-
+	
 	switch (windowMode)
 	{
 		default:
@@ -710,8 +806,10 @@ void Application::setWindowMode(WindowMode windowMode, bool force)
 		{
 			if (mWindowMode >= WindowMode::FULLSCREEN_DESKTOP)
 			{
+				// Exit fullscreen first
 				SDL_SetWindowFullscreen(window, 0);
 			}
+
 			SDL_SetWindowSize(window, Configuration::instance().mWindowSize.x, Configuration::instance().mWindowSize.y);
 			SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(displayIndex), SDL_WINDOWPOS_CENTERED_DISPLAY(displayIndex));
 			SDL_SetWindowResizable(window, SDL_TRUE);
@@ -737,6 +835,16 @@ void Application::setWindowMode(WindowMode windowMode, bool force)
 			}
 			else
 			{
+			#ifdef RMX_USE_SDL3
+				const SDL_DisplayMode* dm = SDL_GetDesktopDisplayMode(displayIndex);
+				if (nullptr != dm)
+				{
+					SDL_SetWindowSize(window, dm->w, dm->h);
+					SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+					SDL_SetWindowResizable(window, false);
+					SDL_SetWindowBordered(window, false);
+				}
+			#else
 				SDL_DisplayMode dm;
 				if (SDL_GetDesktopDisplayMode(displayIndex, &dm) == 0)
 				{
@@ -745,6 +853,7 @@ void Application::setWindowMode(WindowMode windowMode, bool force)
 					SDL_SetWindowResizable(window, SDL_FALSE);
 					SDL_SetWindowBordered(window, SDL_FALSE);
 				}
+			#endif
 			}
 			break;
 		}
@@ -788,6 +897,12 @@ void Application::toggleFullscreen()
 	}
 }
 
+void Application::setPendingRenderMethod(Configuration::RenderMethod renderMethod)
+{
+	// When this is called, don't immediately change the render method, as doing so during "update" or "render" calls might cause issues down the line
+	mPendingRenderMethod = renderMethod;
+}
+
 void Application::enablePauseOnFocusLoss()
 {
 	setPausedByFocusLoss(true);
@@ -805,7 +920,7 @@ void Application::triggerGameRecordingSave()
 
 bool Application::hasKeyboard() const
 {
-#if defined(PLATFORM_WINDOWS) || defined(PLATFORM_MAC) || defined(PLATFORM_LINUX)
+#if defined(PLATFORM_HAS_HARDWARE_KEYBOARD)
 	// It should be safe to assume that desktop platforms always have a keyboard
 	return true;
 #else
@@ -817,6 +932,43 @@ bool Application::hasKeyboard() const
 bool Application::hasVirtualGamepad() const
 {
 	return (EngineMain::instance().getPlatformFlags() & 0x0002) != 0;
+}
+
+void Application::requestActiveTextInput()
+{
+	mRequestActiveTextInput = true;
+}
+
+void Application::onActiveModsChanged()
+{
+	checkActiveModsUsedFeatures();
+}
+
+void Application::processForwardedCommand(std::string_view command)
+{
+	if (command == "reload-scripts")
+	{
+		// Reload scripts (just like pressing F11)
+		if (EngineMain::getDelegate().useDeveloperFeatures())
+		{
+			HighResolutionTimer timer;
+			timer.start();
+			if (mSimulation->triggerFullScriptsReload())
+			{
+				LogDisplay::instance().setLogDisplay(String(0, "Reloaded scripts in %0.2f sec", timer.getSecondsSinceStart()));
+			}
+		}
+	}
+	else
+	{
+		RMX_ASSERT(false, "Unhandled forwarded command: " << command);
+	}
+}
+
+void Application::processUrl(std::string_view url)
+{
+	// TODO...
+	RMX_ASSERT(false, "Unhandled received URL: " << url);
 }
 
 int Application::updateWindowDisplayIndex()
@@ -843,11 +995,19 @@ void Application::setUnscaledWindow()
 		}
 		else
 		{
+		#ifdef RMX_USE_SDL3
+			const SDL_DisplayMode* dm = SDL_GetDesktopDisplayMode(displayIndex);
+			if (nullptr != dm)
+			{
+				desktopSize.set(dm->w, dm->h);
+			}
+		#else
 			SDL_DisplayMode dm;
 			if (SDL_GetDesktopDisplayMode(displayIndex, &dm) == 0)
 			{
 				desktopSize.set(dm.w, dm.h);
 			}
+		#endif
 		}
 	}
 
@@ -906,6 +1066,8 @@ bool Application::updateLoading()
 				RMX_LOG_INFO("Adding game app instance");
 				mGameApp = &EngineMain::getDelegate().createGameApp();
 				addChild(*mGameApp);
+
+				checkActiveModsUsedFeatures();
 				break;
 			}
 
@@ -934,4 +1096,14 @@ void Application::setPausedByFocusLoss(bool enable)
 		mPausedByFocusLoss = enable;
 		mSimulation->setRunning(!enable);
 	}
+}
+
+void Application::checkActiveModsUsedFeatures()
+{
+	// Check mods for usage of Crowd Control
+	const bool usesCrowdControl = ModManager::instance().anyActiveModUsesFeature(rmx::constMurmur2_64("CrowdControl"));
+	if (usesCrowdControl)
+		CrowdControlClient::instance().startConnection();
+	else
+		CrowdControlClient::instance().stopConnection();
 }

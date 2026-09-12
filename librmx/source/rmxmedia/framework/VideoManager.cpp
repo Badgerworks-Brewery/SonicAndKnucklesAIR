@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -11,7 +11,13 @@
 #if defined(PLATFORM_WINDOWS)
 	#pragma warning(disable: 4005)	// Macro redefinition of APIENTRY
 
-	#include <SDL2/SDL_syswm.h>
+	#ifndef RMX_USE_SDL3
+		#if defined(__GNUC__)
+			#include <SDL2/SDL_syswm.h>
+		#else
+			#include <SDL/SDL_syswm.h>
+		#endif
+	#endif
 
 	#define WIN32_LEAN_AND_MEAN
 	#include "CleanWindowsInclude.h"
@@ -36,58 +42,72 @@ namespace rmx
 		SDL_DestroyWindow(mMainWindow);
 	}
 
-	bool VideoManager::setVideoMode(const VideoConfig& videoconfig)
+	bool VideoManager::setVideoMode(const VideoConfig& videoConfig)
 	{
 		// Change video mode
 		uint32 flags = 0;
 	#ifdef RMX_WITH_OPENGL_SUPPORT
-		if (videoconfig.mRenderer == VideoConfig::Renderer::OPENGL)
+		if (videoConfig.mRenderer == VideoConfig::Renderer::OPENGL)
 		{
 			flags |= SDL_WINDOW_OPENGL;
 		}
 	#endif
-		if (videoconfig.mFullscreen)
+		if (videoConfig.mFullscreen)
 		{
 			flags |= SDL_WINDOW_FULLSCREEN;
 		}
 		else
 		{
-			if (videoconfig.mBorderless)
+			if (videoConfig.mBorderless)
 				flags |= SDL_WINDOW_BORDERLESS;
-			if (videoconfig.mResizeable)
+			if (videoConfig.mResizeable)
 				flags |= SDL_WINDOW_RESIZABLE;
 		}
 
-		int startX = SDL_WINDOWPOS_CENTERED_DISPLAY(videoconfig.mDisplayIndex);
-		int startY = SDL_WINDOWPOS_CENTERED_DISPLAY(videoconfig.mDisplayIndex);
-		if (videoconfig.mPositioning)
+		int startX = SDL_WINDOWPOS_CENTERED_DISPLAY(videoConfig.mDisplayIndex);
+		int startY = SDL_WINDOWPOS_CENTERED_DISPLAY(videoConfig.mDisplayIndex);
+		if (videoConfig.mPositioning)
 		{
-			startX = videoconfig.mStartPos.x;
-			startY = videoconfig.mStartPos.y;
+			startX = videoConfig.mStartPos.x;
+			startY = videoConfig.mStartPos.y;
 		}
 
-		mMainWindow = SDL_CreateWindow(*videoconfig.mCaption, startX, startY, videoconfig.mWindowRect.width, videoconfig.mWindowRect.height, flags);
+	#ifdef RMX_USE_SDL3
+		{
+			SDL_PropertiesID props = SDL_CreateProperties();
+			SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, *videoConfig.mCaption);
+			SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, startX);
+			SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, startY);
+			SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, videoConfig.mWindowRect.width);
+			SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, videoConfig.mWindowRect.height);
+			SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_FLAGS_NUMBER, flags);
+			mMainWindow = SDL_CreateWindowWithProperties(props);
+			SDL_DestroyProperties(props);
+		}
+	#else
+		mMainWindow = SDL_CreateWindow(*videoConfig.mCaption, startX, startY, videoConfig.mWindowRect.width, videoConfig.mWindowRect.height, flags);
+	#endif
 
 		// Success so far?
 		if (nullptr == mMainWindow)
 			return false;
 
 	#ifdef RMX_WITH_OPENGL_SUPPORT
-		if (videoconfig.mRenderer == VideoConfig::Renderer::OPENGL)
+		if (videoConfig.mRenderer == VideoConfig::Renderer::OPENGL)
 		{
 			SDL_GL_CreateContext(mMainWindow);
-			SDL_GL_SetSwapInterval(videoconfig.mVSync ? 1 : 0);
+			SDL_GL_SetSwapInterval(videoConfig.mVSync ? 1 : 0);
 		}
 	#endif
 
 		// Copy video config
-		mVideoConfig = videoconfig;
+		mVideoConfig = videoConfig;
 
 		SDL_GetWindowSize(mMainWindow, &mVideoConfig.mWindowRect.width, &mVideoConfig.mWindowRect.height);
-		SDL_ShowCursor(!videoconfig.mHideCursor);
+		SDL_ShowCursor(!videoConfig.mHideCursor);
 
 	#ifdef RMX_WITH_OPENGL_SUPPORT
-		if (videoconfig.mRenderer == VideoConfig::Renderer::OPENGL)
+		if (videoConfig.mRenderer == VideoConfig::Renderer::OPENGL)
 		{
 			// Defaults for OpenGL
 			glEnable(GL_BLEND);
@@ -172,7 +192,11 @@ namespace rmx
 			if (nullptr != bitmap)
 			{
 				bitmap->rescale(32, 32);
+			#ifdef RMX_USE_SDL3
+				SDL_Surface* icon = SDL_CreateSurfaceFrom(32, 32, SDL_PIXELFORMAT_ABGR8888, bitmap->getData(), bitmap->getWidth() * sizeof(uint32));
+			#else
 				SDL_Surface* icon = SDL_CreateRGBSurfaceFrom(bitmap->getData(), 32, 32, 32, bitmap->getWidth() * sizeof(uint32), 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+			#endif
 				SDL_SetWindowIcon(mMainWindow, icon);
 				SDL_FreeSurface(icon);
 			}
@@ -288,11 +312,18 @@ namespace rmx
 	uint64 VideoManager::getNativeWindowHandle() const
 	{
 	#ifdef PLATFORM_WINDOWS
-		SDL_SysWMinfo info;
-		SDL_VERSION(&info.version);
-		if (!SDL_GetWindowWMInfo(mMainWindow, &info))
-			return 0;
-		return (uint64)info.info.win.window;
+
+		#ifdef RMX_USE_SDL3
+			HWND hwnd = (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(mMainWindow), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+			return (uint64)hwnd;
+		#else
+			SDL_SysWMinfo info;
+			SDL_VERSION(&info.version);
+			if (!SDL_GetWindowWMInfo(mMainWindow, &info))
+				return 0;
+			return (uint64)info.info.win.window;
+		#endif
+
 	#else
 		// TODO: Implement this
 		return 0;

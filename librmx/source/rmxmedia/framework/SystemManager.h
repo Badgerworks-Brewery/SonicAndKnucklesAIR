@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -35,6 +35,8 @@ namespace rmx
 
 		void quit();
 
+		GuiBase& getRoot()  { return mRoot; }
+
 		// Time measurement
 		float getTime() const			{ return mTotalTime; }
 		float getTimeDifference() const	{ return mTimeDifference; }
@@ -59,7 +61,6 @@ namespace rmx
 
 	private:
 		void run();
-		void startTick();
 		void checkSDLEvents();
 		void reshape(int width, int height);
 		void keyboard(const SDL_KeyboardEvent& ev);
@@ -75,7 +76,7 @@ namespace rmx
 
 		bool   mInitialized = false;
 		bool   mRunning = false;
-		uint32 mTicks = 0;
+		SDL_TicksType mTicks = 0;
 		float  mTotalTime = 0.0f;
 		float  mTimeDifference = 0.0f;
 		float  mFrameRate = 0.0f;

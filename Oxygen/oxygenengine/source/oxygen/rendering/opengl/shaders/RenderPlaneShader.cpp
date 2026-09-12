@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -17,7 +17,7 @@
 #include "oxygen/helper/FileHelper.h"
 
 
-void RenderPlaneShader::initialize(Variation variation, bool alphaTest)
+void RenderPlaneShader::initialize(Variation variation)
 {
 	mHorizontalScrolling = (variation != PS_SIMPLE);
 	mVerticalScrolling = (variation == PS_VERTICAL_SCROLLING);
@@ -25,8 +25,9 @@ void RenderPlaneShader::initialize(Variation variation, bool alphaTest)
 
 	const std::string techname = noRepeat ? "HorizontalScrollingNoRepeat" : mHorizontalScrolling ? (mVerticalScrolling ? "HorizontalVerticalScrolling" : "HorizontalScrolling") : (mVerticalScrolling ? "VerticalScrolling" : "Standard");
 	std::string additionalDefines = BufferTexture::supportsBufferTextures() ? "USE_BUFFER_TEXTURES" : "";
-	if (alphaTest)
-		additionalDefines = (additionalDefines.empty() ? std::string() : (additionalDefines + ",")) + "ALPHA_TEST";
+
+	// Always add ALPHA_TEST, there's no variant without
+	additionalDefines = (additionalDefines.empty() ? std::string() : (additionalDefines + ",")) + "ALPHA_TEST";
 
 	if (FileHelper::loadShader(mShader, L"data/shader/render_plane.shader", techname, additionalDefines))
 	{

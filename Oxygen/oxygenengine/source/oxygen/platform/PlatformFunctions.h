@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -63,7 +63,7 @@ public:
 	static bool hasClipboardSupport();
 	static bool copyToClipboard(const std::string& string);
 	static bool copyToClipboard(std::wstring_view string);
-	static bool pasteFromClipboard(WString& outString);
+	static bool pasteFromClipboard(std::wstring& outString);
 
 	static bool isDebuggerPresent();
 };

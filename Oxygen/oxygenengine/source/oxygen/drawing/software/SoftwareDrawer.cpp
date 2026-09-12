@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -13,7 +13,7 @@
 #include "oxygen/drawing/software/Blitter.h"
 #include "oxygen/drawing/DrawCollection.h"
 #include "oxygen/drawing/DrawCommand.h"
-#include "oxygen/application/EngineMain.h"
+#include "oxygen/engine/EngineMain.h"
 #include "oxygen/helper/Logging.h"
 #include "oxygen/resources/PaletteCollection.h"
 #include "oxygen/resources/SpriteCollection.h"
@@ -31,9 +31,15 @@ namespace softwaredrawer
 			case SDL_PIXELFORMAT_INDEX4MSB:		return "SDL_PIXELFORMAT_INDEX4MSB";
 			case SDL_PIXELFORMAT_INDEX8:		return "SDL_PIXELFORMAT_INDEX8";
 			case SDL_PIXELFORMAT_RGB332:		return "SDL_PIXELFORMAT_RGB332";
+		#ifdef RMX_USE_SDL3
+			case SDL_PIXELFORMAT_XRGB4444:		return "SDL_PIXELFORMAT_XRGB4444";
+			case SDL_PIXELFORMAT_XRGB1555:		return "SDL_PIXELFORMAT_XRGB1555";
+			case SDL_PIXELFORMAT_XBGR1555:		return "SDL_PIXELFORMAT_XBGR1555";
+		#else
 			case SDL_PIXELFORMAT_RGB444:		return "SDL_PIXELFORMAT_RGB444";
 			case SDL_PIXELFORMAT_RGB555:		return "SDL_PIXELFORMAT_RGB555";
 			case SDL_PIXELFORMAT_BGR555:		return "SDL_PIXELFORMAT_BGR555";
+		#endif
 			case SDL_PIXELFORMAT_ARGB4444:		return "SDL_PIXELFORMAT_ARGB4444";
 			case SDL_PIXELFORMAT_RGBA4444:		return "SDL_PIXELFORMAT_RGBA4444";
 			case SDL_PIXELFORMAT_ABGR4444:		return "SDL_PIXELFORMAT_ABGR4444";
@@ -46,9 +52,17 @@ namespace softwaredrawer
 			case SDL_PIXELFORMAT_BGR565:		return "SDL_PIXELFORMAT_BGR565";
 			case SDL_PIXELFORMAT_RGB24:			return "SDL_PIXELFORMAT_RGB24";
 			case SDL_PIXELFORMAT_BGR24:			return "SDL_PIXELFORMAT_BGR24";
+		#ifdef RMX_USE_SDL3
+			case SDL_PIXELFORMAT_XRGB8888:		return "SDL_PIXELFORMAT_XRGB8888";
+		#else
 			case SDL_PIXELFORMAT_RGB888:		return "SDL_PIXELFORMAT_RGB888";
+		#endif
 			case SDL_PIXELFORMAT_RGBX8888:		return "SDL_PIXELFORMAT_RGBX88881";
-			case SDL_PIXELFORMAT_BGR888	:		return "SDL_PIXELFORMAT_BGR888";
+		#ifdef RMX_USE_SDL3
+			case SDL_PIXELFORMAT_XBGR8888:		return "SDL_PIXELFORMAT_XBGR8888";
+		#else
+			case SDL_PIXELFORMAT_BGR888:		return "SDL_PIXELFORMAT_BGR888";
+		#endif
 			case SDL_PIXELFORMAT_BGRX8888:		return "SDL_PIXELFORMAT_BGRX8888";
 			case SDL_PIXELFORMAT_ARGB8888:		return "SDL_PIXELFORMAT_ARGB8888";
 			case SDL_PIXELFORMAT_RGBA8888:		return "SDL_PIXELFORMAT_RGBA8888";
@@ -126,9 +140,17 @@ namespace softwaredrawer
 			RMX_CHECK(nullptr != mScreenSurface, "Could not get SDL screen surface", return);
 
 			bool formatSupported = false;
+		#ifdef RMX_USE_SDL3
+			switch (mScreenSurface->format)
+		#else
 			switch (mScreenSurface->format->format)
+		#endif
 			{
-				case SDL_PIXELFORMAT_RGB888:		// Used in my Windows 10
+			#ifdef RMX_USE_SDL3
+				case SDL_PIXELFORMAT_XRGB8888:		// Used in my Windows 10
+			#else
+				case SDL_PIXELFORMAT_RGB888:
+			#endif
 				case SDL_PIXELFORMAT_ARGB8888:		// Used in my Linux Mint
 				{
 					formatSupported = true;
@@ -136,7 +158,11 @@ namespace softwaredrawer
 					break;
 				}
 
+			#ifdef RMX_USE_SDL3
+				case SDL_PIXELFORMAT_XBGR8888:
+			#else
 				case SDL_PIXELFORMAT_BGR888:
+			#endif
 				case SDL_PIXELFORMAT_ABGR8888:
 				{
 					formatSupported = true;
@@ -157,7 +183,11 @@ namespace softwaredrawer
 				// Fallback when not able to use the SDL surface directly
 				if (!mDisplayedFormatWarning)
 				{
+				#ifdef RMX_USE_SDL3
+					RMX_ERROR("Unsupported screen surface format " << getSDLPixelFormatText(mScreenSurface->format) << " (" << rmx::hexString(mScreenSurface->format, 8) << ")", );
+				#else
 					RMX_ERROR("Unsupported screen surface format " << getSDLPixelFormatText(mScreenSurface->format->format) << " (" << rmx::hexString(mScreenSurface->format->format, 8) << ")", );
+				#endif
 					mDisplayedFormatWarning = true;
 				}
 
@@ -598,7 +628,7 @@ void SoftwareDrawer::performRendering(const DrawCollection& drawCollection)
 					// Note that this does not support red-blue channel swap
 
 					SoftwareRasterizer rasterizer(outputView, options);
-					SoftwareRasterizer::Vertex_P2_T2 triangle[3];
+					SoftwareRasterizer::Vertex triangle[3];
 
 					const int numTriangles = (int)dc.mTriangles.size() / 3;
 					for (int i = 0; i < numTriangles; ++i)
@@ -609,7 +639,7 @@ void SoftwareDrawer::performRendering(const DrawCollection& drawCollection)
 							triangle[k].mPosition = input[k].mPosition;
 							triangle[k].mUV = input[k].mTexcoords;
 						}
-						rasterizer.drawTriangle(triangle, inputBitmap);
+						rasterizer.drawTriangle(triangle, inputBitmap, false);
 					}
 				}
 				break;
@@ -624,7 +654,7 @@ void SoftwareDrawer::performRendering(const DrawCollection& drawCollection)
 				options.mBlendMode = mInternal.useAlphaBlending() ? BlendMode::ALPHA : BlendMode::OPAQUE;
 
 				SoftwareRasterizer rasterizer(outputView, options);
-				SoftwareRasterizer::Vertex_P2_C4 triangle[3];
+				SoftwareRasterizer::Vertex triangle[3];
 				const bool swapRedBlue = mInternal.needSwapRedBlueChannels();
 
 				const int numTriangles = (int)dc.mTriangles.size() / 3;
@@ -717,4 +747,14 @@ void SoftwareDrawer::presentScreen()
 
 	mInternal.unlockScreenSurface();
 	SDL_UpdateWindowSurface(mInternal.mOutputWindow);
+}
+
+const BitmapViewMutable<uint32>& SoftwareDrawer::getRenderTarget() const
+{
+	return mInternal.getOutputWrapper();
+}
+
+bool SoftwareDrawer::needSwapRedBlueChannels() const
+{
+	return mInternal.needSwapRedBlueChannels();
 }

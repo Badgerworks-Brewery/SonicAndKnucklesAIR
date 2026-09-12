@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -116,6 +116,14 @@ public:
 	TYPE sqrDist(const Vec2& other) const
 	{
 		return sqrDist(*this, other);
+	}
+
+	static float getDirectionAndDistance(Vec2& outDirection, const Vec2& start, const Vec2& end)
+	{
+		const Vec2 difference = end - start;
+		const float length = difference.length();
+		outDirection = difference / length;
+		return length;
 	}
 
 	static TYPE dot(const Vec2& source1, const Vec2& source2)

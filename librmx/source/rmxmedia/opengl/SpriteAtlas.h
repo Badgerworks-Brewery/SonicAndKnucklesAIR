@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -61,6 +61,8 @@ protected:
 
 		inline Node() {}
 		inline Node(const Recti& rct) : mRect(rct) {}
+		inline Node(const Node& other) = delete;
+		inline Node(Node&& other) noexcept : mChildNode{other.mChildNode[0], other.mChildNode[1]}, mRect(other.mRect), mUsed(other.mUsed) { other.mChildNode[0] = nullptr; other.mChildNode[1] = nullptr; }
 		inline ~Node()  { clear(); }
 
 		void clear();

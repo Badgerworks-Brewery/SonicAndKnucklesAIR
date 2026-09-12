@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2025 by Eukaryot
+*	Copyright (C) 2008-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -16,7 +16,8 @@ namespace rmx
 	public:
 		static Json::Value loadFile(const std::string& filename);
 		static Json::Value loadFile(const std::wstring& filename);
-		static Json::Value loadFromStream(std::istream& stream);
+		static Json::Value loadFromStream(std::istream& stream, std::string* outErrors = nullptr);
+		static Json::Value loadFromString(const std::string& content);
 		static Json::Value loadFromMemory(const std::vector<uint8>& content, std::string* outErrors = nullptr);
 		static bool saveFile(const std::wstring& filename, const Json::Value& value);
 

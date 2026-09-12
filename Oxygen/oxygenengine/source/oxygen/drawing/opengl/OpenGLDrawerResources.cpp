@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -11,6 +11,8 @@
 #ifdef RMX_WITH_OPENGL_SUPPORT
 
 #include "oxygen/drawing/opengl/OpenGLDrawerResources.h"
+#include "oxygen/drawing/opengl/OpenGLUpscaler.h"
+#include "oxygen/drawing/upscaler/UpscalerCollection.h"
 #include "oxygen/helper/FileHelper.h"
 #include "oxygen/rendering/opengl/shaders/SimpleRectColoredShader.h"
 #include "oxygen/rendering/opengl/shaders/SimpleRectIndexedShader.h"
@@ -23,6 +25,11 @@
 namespace
 {
 	static const Vec2i PALETTE_TEXTURE_SIZE = Vec2i(256, PaletteManager::MAIN_PALETTE_SIZE / 256 * 2);
+
+	constexpr uint64 UPSCALER_HASH_EMPTY = rmx::constMurmur2_64("");
+	constexpr uint64 UPSCALER_HASH_PIXEL = rmx::constMurmur2_64("pixel");
+	constexpr uint64 UPSCALER_HASH_XBRZ  = rmx::constMurmur2_64("xbrz");
+	constexpr uint64 UPSCALER_HASH_HQX   = rmx::constMurmur2_64("hqx");
 }
 
 
@@ -34,6 +41,9 @@ struct OpenGLDrawerResources::Internal
 	SimpleRectTexturedShader	mSimpleRectTexturedShader[4];		// Enumerated using enum Variant
 	SimpleRectTexturedUVShader	mSimpleRectTexturedUVShader[4];		// Enumerated using enum Variant
 	SimpleRectIndexedShader		mSimpleRectIndexedShader[4];		// Enumerated using enum Variant
+
+	// Upscalers
+	std::unordered_map<uint64, OpenGLUpscaler*> mUpscalers;
 
 	// Vertex array objects
 	opengl::VertexArrayObject mSimpleQuadVAO;
@@ -68,6 +78,26 @@ void OpenGLDrawerResources::startup()
 		}
 	}
 
+	// Load upscalers
+	for (const UpscalerDefinition& definition : UpscalerCollection::instance().getUpscalers())
+	{
+		// Map to internal (still hard-coded) type
+		OpenGLUpscaler::Type type;
+		switch (definition.mNameHash)
+		{
+			case UPSCALER_HASH_EMPTY: type = OpenGLUpscaler::Type::DEFAULT;	break;
+			case UPSCALER_HASH_PIXEL: type = OpenGLUpscaler::Type::PIXEL;	break;
+			case UPSCALER_HASH_XBRZ:  type = OpenGLUpscaler::Type::XBRZ;	break;
+			case UPSCALER_HASH_HQX:	  type = OpenGLUpscaler::Type::HQX;		break;
+			default:
+				continue;
+		}
+
+		OpenGLUpscaler* openGLUpscaler = new OpenGLUpscaler(type, definition, *this);
+		openGLUpscaler->startup();
+		mInternal.mUpscalers.emplace(definition.mNameHash, openGLUpscaler);
+	}
+
 	// Setup simple quad VAO, consisting of two triangles
 	{
 		opengl::VertexArrayObject& vao = mInternal.mSimpleQuadVAO;
@@ -87,6 +117,11 @@ void OpenGLDrawerResources::startup()
 
 void OpenGLDrawerResources::shutdown()
 {
+	for (auto& pair : mInternal.mUpscalers)
+	{
+		pair.second->shutdown();
+	}
+	mInternal.mUpscalers.clear();
 }
 
 void OpenGLDrawerResources::clearAllCaches()
@@ -252,6 +287,39 @@ bool OpenGLDrawerResources::updatePalette(PaletteData& data, const PaletteBase& 
 const Vec2i& OpenGLDrawerResources::getPaletteTextureSize() const
 {
 	return PALETTE_TEXTURE_SIZE;
+}
+
+OpenGLUpscaler& OpenGLDrawerResources::getUpscaler()
+{
+	const Configuration::ScreenFilter& config = Configuration::instance().mScreenFilter;
+
+#if defined(PLATFORM_VITA)
+	config.mUpscalerNameHash = UPSCALER_HASH_PIXEL;
+#endif
+
+	OpenGLUpscaler* upscaler = nullptr;
+	if (config.mUpscalerNameHash == UPSCALER_HASH_PIXEL && config.mPixelVariant == 0 && config.mScanlines == 0)
+	{
+		// Use simple upscaler in this case
+		upscaler = mapFindOrDefault(mInternal.mUpscalers, UPSCALER_HASH_EMPTY, nullptr);
+	}
+	else
+	{
+		// Find the right upscaler
+		OpenGLUpscaler** found = mapFind(mInternal.mUpscalers, config.mUpscalerNameHash);
+		if (nullptr != found)
+		{
+			upscaler = *found;
+		}
+		else
+		{
+			// Fallback to simple upscaler
+			upscaler = mapFindOrDefault(mInternal.mUpscalers, UPSCALER_HASH_EMPTY, nullptr);
+		}
+	}
+
+	RMX_ASSERT(nullptr != upscaler, "Upscaler not found, not even the fallback");
+	return *upscaler;
 }
 
 bool OpenGLDrawerResources::updatePaletteBitmap(const PaletteBase& palette, Bitmap& bitmap, int offsetY, uint16& changeCounter)

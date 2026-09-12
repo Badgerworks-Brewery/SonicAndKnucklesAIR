@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -10,15 +10,16 @@
 #include "oxygen/application/overlays/SaveStateMenu.h"
 #include "oxygen/application/Application.h"
 #include "oxygen/application/Configuration.h"
-#include "oxygen/application/EngineMain.h"
 #include "oxygen/application/input/ControlsIn.h"
 #include "oxygen/application/input/InputManager.h"
 #include "oxygen/drawing/DrawerTexture.h"
+#include "oxygen/engine/EngineMain.h"
 #include "oxygen/simulation/CodeExec.h"
 #include "oxygen/simulation/Simulation.h"
 
 
-SaveStateMenu::SaveStateMenu()
+SaveStateMenu::SaveStateMenu() :
+	GuiBase("SaveStateMenu")
 {
 	mFont.setSize(18.0f);
 	mFont.addFontProcessor(std::make_shared<ShadowFontProcessor>(Vec2i(2, 2), 0.5f));
@@ -117,7 +118,7 @@ void SaveStateMenu::keyboard(const rmx::KeyboardEvent& ev)
 			{
 				onAccept(true, true);
 				InputManager::instance().updateInput(0.0f);		// This clears the changed state of "Enter"
-				ControlsIn::instance().setAllIgnores();	// Just to make sure any current key pressed (especially "Enter") won't have an effect in the simulation
+				ControlsIn::instance().setAllIgnores();			// Just to make sure any current key pressed (especially "Enter") won't have an effect in the simulation
 				break;
 			}
 
@@ -167,7 +168,7 @@ void SaveStateMenu::textinput(const rmx::TextInputEvent& ev)
 	if (mEditing && mHighlightedIndex < mEntries.size())
 	{
 		Entry& entry = mEntries[mHighlightedIndex];
-		entry.mName += *ev.text;
+		entry.mName += ev.text;
 	}
 }
 
@@ -190,7 +191,11 @@ void SaveStateMenu::update(float timeElapsed)
 		changeHighlightedIndex(+1);
 	}
 
-	if (!mEditing)
+	if (mEditing)
+	{
+		Application::instance().requestActiveTextInput();
+	}
+	else
 	{
 		if (controller.A.justPressed())
 		{
@@ -209,7 +214,7 @@ void SaveStateMenu::render()
 
 	drawer.drawRect(FTX::screenRect(), Color::fromABGR32(0xe0000000));
 
-	Rectf rect((float)(FTX::screenWidth() / 2 - 280), 30, 0, 0);
+	Rectf rect((float)(FTX::screenWidth() / 2 - 280), roundToFloat(30.0f - mScrollOffset), 0, 0);
 	drawer.printText(mFont, rect, mForLoading ? "LOAD STATE" : "SAVE STATE");
 	rect.addPos(16, 40);
 
@@ -259,6 +264,11 @@ void SaveStateMenu::render()
 		drawer.drawRect(rct, mPreview);
 	}
 
+	const float scrollMin = mScrollOffset + (float)(highlightedPositionY - FTX::screenHeight() * 3 / 4);
+	const float scrollMax = scrollMin + (float)(FTX::screenHeight() / 2);
+	const float scrollOffsetTarget = std::max(clamp(mScrollOffset, scrollMin, scrollMax), 0.0f);
+	mScrollOffset += (scrollOffsetTarget - mScrollOffset) * FTX::getTimeDifference() * 20.0f;
+
 	drawer.performRendering();
 }
 
@@ -296,10 +306,6 @@ void SaveStateMenu::setHighlightedIndex(uint32 highlightedIndex)
 			Bitmap bmp;
 			if (bmp.load(mSaveStateDirectory[(size_t)entry.mType] + L"/" + entry.mName + L".state.bmp"))
 			{
-				if (!mPreview.isValid())
-				{
-					EngineMain::instance().getDrawer().createTexture(mPreview);
-				}
 				mPreview.accessBitmap() = bmp;
 				mPreview.bitmapUpdated();
 				mHasPreview = true;

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2025 by Eukaryot
+*	Copyright (C) 2017-2026 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -19,7 +19,7 @@
 #include "sonic3air/version.inc"
 
 #include "oxygen/application/Application.h"
-#include "oxygen/application/modding/Mod.h"
+#include "oxygen/engine/modding/Mod.h"
 #include "oxygen/download/Downloader.h"
 
 
@@ -226,7 +226,7 @@ void OptionsMenuEntry::renderInternal(RenderContext& renderContext_, const Color
 			if (mData == option::SOUND_TEST)
 			{
 				audioDefinition = renderContext.mOptionsMenu->getSoundTestAudioDefinition(selected().mValue);
-				if (nullptr != audioDefinition && AudioOut::instance().getAudioKeyType(audioDefinition->mKeyId) == AudioOutBase::AudioKeyType::MODDED)
+				if (nullptr != audioDefinition && AudioOut::instance().getAudioKeyType(audioDefinition->mPrimaryKeyId) == AudioOutBase::AudioKeyType::MODDED)
 				{
 					static std::string combinedText;
 					combinedText = *text + " (modded)";
@@ -323,6 +323,7 @@ void UpdateCheckMenuEntry::renderEntry(RenderContext& renderContext_)
 	OptionsMenuEntry::renderEntry(renderContext);
 }
 
+
 void SoundtrackMenuEntry::renderEntry(RenderContext& renderContext_)
 {
 	renderInternal(renderContext_, Color::WHITE, Color::YELLOW);
@@ -346,6 +347,7 @@ void SoundtrackMenuEntry::renderEntry(RenderContext& renderContext_)
 		}
 	#endif
 }
+
 
 void SoundtrackDownloadMenuEntry::renderEntry(RenderContext& renderContext_)
 {
@@ -429,4 +431,26 @@ void SoundtrackDownloadMenuEntry::triggerButton()
 bool SoundtrackDownloadMenuEntry::shouldBeShown()
 {
 	return (ConfigurationImpl::instance().mActiveSoundtrack == 1 && Downloader::isDownloaderSupported() && !AudioOut::instance().hasLoadedRemasteredSoundtrack());
+}
+
+
+DevModeMenuEntry::DevModeMenuEntry()
+{
+	setUseSmallFont(true);
+}
+
+void DevModeMenuEntry::renderEntry(RenderContext& renderContext_)
+{
+	OptionsMenuRenderContext& renderContext = renderContext_.as<OptionsMenuRenderContext>();
+	Drawer& drawer = *renderContext.mDrawer;
+
+	renderInternal(renderContext_, Color::WHITE, Color::YELLOW);
+
+	if ((mOptions[mSelectedIndex].mValue != 0) != Configuration::instance().mDevMode.mEnabled)
+	{
+		const int baseX = renderContext.mCurrentPosition.x;
+		int& py = renderContext.mCurrentPosition.y;
+		py += 14;
+		drawer.printText(global::mOxyfontSmall, Recti(baseX, py, 0, 10), "App restart required to switch Dev Mode on or off!", 5, Color(1.0f, 0.8f, 0.6f, renderContext.mTabAlpha));
+	}
 }
