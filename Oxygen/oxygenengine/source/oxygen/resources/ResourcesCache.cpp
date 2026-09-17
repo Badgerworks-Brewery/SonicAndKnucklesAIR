@@ -268,24 +268,21 @@ bool ResourcesCache::tryUnwrapContainer(const std::wstring& filename, std::vecto
 		if (!zipProvider.isLoaded())
 			return false;
 
-		const auto toLowerCopy = [](std::wstring s) { std::transform(s.begin(), s.end(), s.begin(), [](wchar_t c) { return (wchar_t)std::tolower((int)c); }); return s; };
-
-		std::vector<rmx::FileIO::FileEntry> entries;
-		zipProvider.listFiles(L"", true, entries);
-		for (const rmx::FileIO::FileEntry& entry : entries)
+		for (const std::wstring& targetName : targetNames)
 		{
-			const std::wstring entryNameLower = toLowerCopy(entry.mFilename);
-			for (const std::wstring& targetName : targetNames)
+			// Search recursively for the target filename anywhere in the archive
+			std::vector<rmx::FileIO::FileEntry> entries;
+			if (!zipProvider.listFilesByMask(L"*" + targetName, true, entries))
+				continue;
+
+			for (const rmx::FileIO::FileEntry& entry : entries)
 			{
-				if (entryNameLower == toLowerCopy(targetName))
+				std::vector<uint8> extracted;
+				if (zipProvider.readFile(entry.mPath + entry.mFilename, extracted))
 				{
-					std::vector<uint8> extracted;
-					if (zipProvider.readFile(entry.mPath, extracted))
-					{
-						content = std::move(extracted);
-						RMX_LOG_INFO("Extracted PC executable from ZIP archive");
-						return true;
-					}
+					content = std::move(extracted);
+					RMX_LOG_INFO("Extracted PC executable from ZIP archive");
+					return true;
 				}
 			}
 		}
@@ -372,7 +369,6 @@ bool ResourcesCache::loadRomFile(const std::wstring& filename, const GameProfile
 
 bool ResourcesCache::loadRomMemory(const std::vector<uint8>& content)
 {
-	const uint64 headerChecksum = getHeaderChecksum(content);
 	if (GameProfile::instance().mRomInfos.empty())
 	{
 		mRom = content;
@@ -383,11 +379,28 @@ bool ResourcesCache::loadRomMemory(const std::vector<uint8>& content)
 	{
 		for (const GameProfile::RomInfo& romInfo : GameProfile::instance().mRomInfos)
 		{
-			// If ROM info defines a required header checksum, make sure it fits (this is meant to be an early-out before doing the potentially expensive code below)
-			if (romInfo.mHeaderChecksum != 0 && romInfo.mHeaderChecksum != headerChecksum)
+			// PC-type content needs its game data extracted from the executable first --
+			// its header checksum (if any) applies to the extracted data, not the raw file,
+			// so it can only be checked afterwards.
+			if (romInfo.mRomType == GameProfile::RomType::PC)
+			{
+				if (!extractPCGameData(content, romInfo))
+					continue;
+			}
+			else
+			{
+				// If ROM info defines a required header checksum, make sure it fits (this is meant to be an early-out before doing the potentially expensive code below)
+				const uint64 headerChecksum = getHeaderChecksum(content);
+				if (romInfo.mHeaderChecksum != 0 && romInfo.mHeaderChecksum != headerChecksum)
+					continue;
+
+				mRom = content;
+			}
+
+			const uint64 extractedChecksum = getHeaderChecksum(mRom);
+			if (romInfo.mHeaderChecksum != 0 && romInfo.mHeaderChecksum != extractedChecksum)
 				continue;
 
-			mRom = content;
 			if (applyRomModifications(romInfo))
 			{
 				if (checkRomContent(&romInfo))
